@@ -2,15 +2,10 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-import model
 import math
-import yaml
 from transformers import get_linear_schedule_with_warmup
 
-global cfg
-if 'cfg' not in globals():
-    with open('config.yml', 'r') as f:
-        cfg = yaml.load(f, Loader=yaml.FullLoader)
+from config import cfg
 
 
 def make_model(cfg):
