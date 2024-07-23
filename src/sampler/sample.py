@@ -126,18 +126,15 @@ def ddim_sample_loop_V(model, x, t, steps, eta, classes, guidance_scale=1.):
 def ddim_sample_loop_Epsilon(model, x, t, steps, eta, classes, guidance_scale=1.):
     alphas, sigmas = get_alphas_sigmas(cfg['steps']) # sigma: noise level
 
-    betas = sigmas
-    alphas = 1. - betas
     # Pre-calculate different terms for closed form
-    alphas = 1. - betas
     alphas_cumprod = torch.cumprod(alphas, axis=0)
     alphas_cumprod_prev = F.pad(alphas_cumprod[:-1], (1, 0), value=1.0)
     sqrt_recip_alphas = torch.sqrt(1.0 / alphas)
     sqrt_alphas_cumprod = torch.sqrt(alphas_cumprod)
     sqrt_one_minus_alphas_cumprod = torch.sqrt(1. - alphas_cumprod)
-    posterior_variance = betas * (1. - alphas_cumprod_prev) / (1. - alphas_cumprod)
+    posterior_variance = sigmas * (1. - alphas_cumprod_prev) / (1. - alphas_cumprod)
 
-    betas_t = get_index_from_list(betas, t, x.shape)
+    sigma_t = get_index_from_list(sigmas, t, x.shape)
     sqrt_one_minus_alphas_cumprod_t = get_index_from_list(
         sqrt_one_minus_alphas_cumprod, t, x.shape
     )
@@ -145,18 +142,22 @@ def ddim_sample_loop_Epsilon(model, x, t, steps, eta, classes, guidance_scale=1.
 
     # The sampling loop
     for i in trange(steps):
-
         # Call model (current image - noise prediction)
-        model_mean = sqrt_recip_alphas_t * (
-            x - betas_t * model(x, t)['target'] / sqrt_one_minus_alphas_cumprod_t
+        pred = sqrt_recip_alphas_t * (
+            x - sigma_t * model(x, t)['target'] / sqrt_one_minus_alphas_cumprod_t
         ) # Epsilon model output is the predicted noise
         posterior_variance_t = get_index_from_list(posterior_variance, t, x.shape)
+        eps = model(x, t)['target']
 
-        if t == 0:
-            pred = model_mean
-        else:
-            noise = torch.randn_like(x)
-            pred = model_mean + torch.sqrt(posterior_variance_t) * noise
+        if i < steps - 1:
+            ddim_sigma = eta * (sigmas[i + 1]**2 / sigmas[i]**2).sqrt() * \
+                (1 - alphas[i]**2 / alphas[i + 1]**2).sqrt()
+            adjusted_sigma = (sigmas[i + 1]**2 - ddim_sigma**2).sqrt()
+            x = pred * alphas[i + 1] + eps * adjusted_sigma # ddim eq(12)
+
+            # Add the correct amount of fresh noise
+            if eta:
+                x += torch.randn_like(x) * ddim_sigma
         
     return pred
 
