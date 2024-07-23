@@ -6,7 +6,7 @@ from .backbone import *
 from config import cfg
 
 
-class DiffusionX0(nn.Module):
+class DiffusionXzero(nn.Module):
     def __init__(self):
         super().__init__()
         c = 64  # The base channel count
@@ -95,6 +95,6 @@ class DiffusionX0(nn.Module):
 
 
 def diffusionX(cfg):
-    model = DiffusionX0()
+    model = DiffusionXzero()
     model.apply(init_param)
     return model

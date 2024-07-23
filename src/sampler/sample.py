@@ -12,6 +12,10 @@ from config import cfg, process_args
 from metric import make_logger
 from model import make_model, make_optimizer, make_scheduler, get_alphas_sigmas
 from module import save, check, resume, to_device, process_control
+from config import cfg
+from IPython import display
+from matplotlib import pyplot as plt
+from model import *
 
 cudnn.benchmark = True
 parser = argparse.ArgumentParser(description='cfg')
@@ -28,7 +32,6 @@ def main():
         tag_list = [str(seeds[i]), cfg['control_name']]
         cfg['tag'] = '_'.join([x for x in tag_list if x])
         process_control()
-        print('sampling...: {}'.format(cfg['tag']))
         runExperiment()
     return
 
@@ -40,37 +43,47 @@ def runExperiment():
     torch.manual_seed(cfg['seed'])
 
     noise = torch.randn([100, 3, 32, 32], device=cfg['device'])
-    classes = torch.arange(10, device=cfg['device']).repeat_interleave(10, 0)
+    sample = make_sample(noise)
 
-    model = make_model(cfg['model'])
-    cfg['sample_path'] = os.path.join('output', 'sample', cfg['tag'])
-    steps = cfg['steps']
-    sample_fn = make_sample_fn(model, noise, steps, eta, classes, cfg['guidance_scale'])
-    sample = sample_fn(model, noise, steps, eta, classes, cfg['guidance_scale'])
+    grid = utils.make_grid(sample, 10).cpu()
+    filename = f'demo_{cfg['tag']}.png'
+    TF.to_pil_image(grid.add(1).div(2).clamp(0, 1)).save(filename)
+    display.display(display.Image(filename))
+    tqdm.write('')
+
     save(sample, cfg['sample_path'])
     return
 
-def make_sample_fn(model, x, steps, eta, classes, guidance_scale=1.):
+def make_sample(x):
+    classes = torch.arange(10, device=cfg['device']).repeat_interleave(10, 0)
+    model = make_model(cfg['model'])
+    cfg['sample_path'] = os.path.join('output', 'sample', cfg['tag'])
+    steps = cfg['steps']
+    guidance_scale = cfg['guidance_scale']
+    eta = 1. if not cfg['use_ddim'] else 0.
+    # The amount of noise to add each timestep when sampling
+    # 0 = no noise (DDIM)
+    # 1 = full noise (DDPM)
+    t = torch.linspace(1, 0, steps + 1)[:-1]
+
     if cfg['model'] == 'diffusionV':
-        sample_fn = (p_sample_loop_V(model, x, steps, eta, classes, guidance_scale=1.) if not cfg['use_ddim'] 
-                     else ddim_sample_loop_V(model, x, steps, eta, classes, guidance_scale=1.))
+        sample = ddim_sample_loop_V(model, x, t, steps, eta, classes, guidance_scale)
     elif cfg['model'] == 'diffusionEpsilon':
-        sample_fn = (p_sample_loop_Epsilon(model, x, steps, eta, classes, guidance_scale=1.) if not cfg['use_ddim'] 
-                     else ddim_sample_loop_Epsilon(model, x, steps, eta, classes, guidance_scale=1.))
-    elif cfg['model'] == 'diffusionX':
-        sample_fn = (p_sample_loop_X(model, x, steps, eta, classes, guidance_scale=1.) if not cfg['use_ddim'] 
-                     else ddim_sample_loop_X(model, x, steps, eta, classes, guidance_scale=1.))
+        sample = ddim_sample_loop_Epsilon(model, x, t, steps, eta, classes, guidance_scale)
+    elif cfg['model'] == 'diffusionXzero':
+        sample = ddim_sample_loop_Xzero(model, x, t, steps, eta, classes, guidance_scale)
+    elif cfg['model'] == 'diffusionXprev':
+        sample = ddim_sample_loop_Xprev(model, x, t, steps, eta, classes, guidance_scale)
     else:
         raise ValueError('Not valid sample function')
-    return sample_fn
+    return sample
 
 @torch.no_grad()
-def ddim_sample_loop_V(model, x, steps, eta, classes, guidance_scale=1.):
+def ddim_sample_loop_V(model, x, t, steps, eta, classes, guidance_scale=1.):
     """Draws samples from a model given starting noise."""
     ts = x.new_ones([x.shape[0]])
 
     # Create the noise schedule
-    t = torch.linspace(1, 0, steps + 1)[:-1]
     alphas, sigmas = get_alphas_sigmas(t)
 
     # The sampling loop
@@ -81,7 +94,7 @@ def ddim_sample_loop_V(model, x, steps, eta, classes, guidance_scale=1.):
             x_in = torch.cat([x, x])
             ts_in = torch.cat([ts, ts])
             classes_in = torch.cat([-torch.ones_like(classes), classes])
-            v_uncond, v_cond = model(x_in, ts_in * t[i], classes_in).float().chunk(2)
+            v_uncond, v_cond = model(x_in, ts_in * t[i], classes_in)['target'].float().chunk(2)
         v = v_uncond + guidance_scale * (v_cond - v_uncond)
 
         # Predict the noise and the denoised image
@@ -99,7 +112,7 @@ def ddim_sample_loop_V(model, x, steps, eta, classes, guidance_scale=1.):
 
             # Recombine the predicted noise and predicted denoised image in the
             # correct proportions for the next step
-            x = pred * alphas[i + 1] + eps * adjusted_sigma
+            x = pred * alphas[i + 1] + eps * adjusted_sigma # ddim eq(12)
 
             # Add the correct amount of fresh noise
             if eta:
@@ -108,24 +121,53 @@ def ddim_sample_loop_V(model, x, steps, eta, classes, guidance_scale=1.):
     # If we are on the last timestep, output the denoised image
     return pred
 
-@torch.no_grad()
-def p_sample_loop_V():
-    return
 
 @torch.no_grad()
-def p_sample_loop_Epsilon():
-    return
+def ddim_sample_loop_Epsilon(model, x, t, steps, eta, classes, guidance_scale=1.):
+    alphas, sigmas = get_alphas_sigmas(cfg['steps']) # sigma: noise level
+
+    betas = sigmas
+    alphas = 1. - betas
+    # Pre-calculate different terms for closed form
+    alphas = 1. - betas
+    alphas_cumprod = torch.cumprod(alphas, axis=0)
+    alphas_cumprod_prev = F.pad(alphas_cumprod[:-1], (1, 0), value=1.0)
+    sqrt_recip_alphas = torch.sqrt(1.0 / alphas)
+    sqrt_alphas_cumprod = torch.sqrt(alphas_cumprod)
+    sqrt_one_minus_alphas_cumprod = torch.sqrt(1. - alphas_cumprod)
+    posterior_variance = betas * (1. - alphas_cumprod_prev) / (1. - alphas_cumprod)
+
+    betas_t = get_index_from_list(betas, t, x.shape)
+    sqrt_one_minus_alphas_cumprod_t = get_index_from_list(
+        sqrt_one_minus_alphas_cumprod, t, x.shape
+    )
+    sqrt_recip_alphas_t = get_index_from_list(sqrt_recip_alphas, t, x.shape)
+
+    # The sampling loop
+    for i in trange(steps):
+
+        # Call model (current image - noise prediction)
+        model_mean = sqrt_recip_alphas_t * (
+            x - betas_t * model(x, t)['target'] / sqrt_one_minus_alphas_cumprod_t
+        ) # Epsilon model output is the predicted noise
+        posterior_variance_t = get_index_from_list(posterior_variance, t, x.shape)
+
+        if t == 0:
+            pred = model_mean
+        else:
+            noise = torch.randn_like(x)
+            pred = model_mean + torch.sqrt(posterior_variance_t) * noise
+        
+    return pred
+
 
 @torch.no_grad()
-def ddim_sample_loop_Epsilon():
+def ddim_sample_loop_Xzero():
     return
 
-@torch.no_grad()
-def p_sample_loop_X():
-    return
 
 @torch.no_grad()
-def ddim_sample_loop_X():
+def ddim_sample_loop_Xprev():
     return
 
 

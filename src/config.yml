@@ -14,5 +14,5 @@ resume_mode: 0
 profile: False
 guidance_scale: 2.
 use_ddim: True
-steps: 500
+steps: 300
 guidance_scale: 2.
