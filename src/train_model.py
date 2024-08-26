@@ -10,6 +10,10 @@ from dataset import make_dataset, make_data_loader, process_dataset
 from metric import make_logger
 from model import make_model, make_optimizer, make_scheduler
 from module import check, resume, to_device, process_control
+from torch.utils import data
+from torchvision import datasets, transforms, utils
+from torchvision.transforms import functional as TF
+from tqdm.notebook import tqdm, trange
 
 cudnn.benchmark = True
 parser = argparse.ArgumentParser(description='cfg')
@@ -21,6 +25,8 @@ process_args(args)
 
 rng = torch.quasirandom.SobolEngine(1, scramble=True)
 scaler = torch.cuda.amp.GradScaler()
+
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 def main():
     seeds = list(range(cfg['init_seed'], cfg['init_seed'] + cfg['num_experiments']))
@@ -63,13 +69,24 @@ def runExperiment():
         scheduler.load_state_dict(result['scheduler'])
         logger.load_state_dict(result['logger'])
         logger.reset()
-    data_loader = make_data_loader(dataset, cfg[cfg['tag']]['optimizer']['batch_size'], cfg['num_steps'],
-                                   cfg['step'], cfg['step_period'], cfg['pin_memory'], cfg['num_workers'],
-                                   cfg['collate_mode'], cfg['seed'])
-    data_iterator = enumerate(data_loader['train'])
+    #data_loader = make_data_loader(dataset, cfg[cfg['tag']]['optimizer']['batch_size'], cfg['num_steps'],
+                                   #cfg['step'], cfg['step_period'], cfg['pin_memory'], cfg['num_workers'],
+                                   #cfg['collate_mode'], cfg['seed'])
+    #data_iterator = enumerate(data_loader['train'])
+    tf = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize([0.5], [0.5]),
+    ])
+    train_set = datasets.CIFAR10('data', train=True, download=True, transform=tf)
+    train_dl = data.DataLoader(train_set, 100, shuffle=True,
+                           num_workers=2, persistent_workers=True, pin_memory=True)
+    val_set = datasets.CIFAR10('data', train=False, download=True, transform=tf)
+    val_dl = data.DataLoader(val_set, 100,
+                            num_workers=2, persistent_workers=True, pin_memory=True)
+    data_iterator = enumerate(tqdm(train_dl))
     while cfg['step'] < cfg['num_steps']:
         train(data_iterator, model, optimizer, scheduler, logger)
-        test(data_loader['test'], model, logger)
+        #test(data_loader['test'], model, logger)
         result = {'cfg': cfg, 'model': model.state_dict(),
                   'optimizer': optimizer.state_dict(), 'scheduler': scheduler.state_dict(),
                   'logger': logger.state_dict()}
@@ -81,20 +98,28 @@ def runExperiment():
 
 
 def train(data_loader, model, optimizer, scheduler, logger):
-    model.train(True)
+    #model.train(True)
+    model.to(device)
     start_time = time.time()
     with logger.profiler:
         for i, (reals, classes) in data_loader:
+            optimizer.zero_grad()
             if i % cfg['step_period'] == 0 and cfg['profile']:
                 logger.profiler.step()
-            input_size = reals.size(0)
-            input = to_device(reals, cfg['device'])
-            t = rng.draw(reals.shape[0])[:, 0].to(cfg['device'])
-            output = model(input, t, classes)
+            #input_size = input['data'].size(0)
+            reals = reals.to(device)
+            input = reals
+            classes = classes.to(device)
+            t = rng.draw(reals.shape[0])[:, 0].to(device)
+            output = model(reals, t, classes)
             loss = output['loss']
             scaler.scale(loss).backward()
             scaler.step(optimizer)
             scaler.update()
+
+            if i % 50 == 0:
+                tqdm.write(f'Iteration: {i}, loss: {loss.item():g}')
+
             if (i + 1) % cfg['step_period'] == 0:
                 optimizer.step()
                 scheduler.step()
@@ -127,11 +152,11 @@ def train(data_loader, model, optimizer, scheduler, logger):
 def test(data_loader, model, logger):
     with torch.no_grad():
         model.train(False)
-        for i, (reals, classes) in enumerate(data_loader):
-            input_size = reals.size(0)
+        for i, input in enumerate(data_loader):
+            input_size = input['data'].size(0)
             input = to_device(input, cfg['device'])
-            t = rng.draw(reals.shape[0])[:, 0].to(cfg['device'])
-            output = model(input, t, classes)
+            t = rng.draw(input['data'].shape[0])[:, 0].to(cfg['device'])
+            output = model(input['data'], t, input['target'])
             evaluation = logger.evaluate('test', 'batch', input, output)
             logger.append(evaluation, 'test', input_size)
             logger.add('test', input, output)

@@ -4,13 +4,32 @@ import torch.nn.functional as F
 import torch.optim as optim
 import math
 from transformers import get_linear_schedule_with_warmup
+from contextlib import contextmanager
 
 from config import cfg
 
 
-def make_model(cfg):
-    model = eval('model.{}(cfg)'.format(cfg['model_name']))
-    return model
+@contextmanager
+def train_mode(model, mode=True):
+    """A context manager that places a model into training mode and restores
+    the previous mode on exit."""
+    modes = [module.training for module in model.modules()]
+    try:
+        yield model.train(mode)
+    finally:
+        for i, module in enumerate(model.modules()):
+            module.training = modes[i]
+
+
+def eval_mode(model):
+    """A context manager that places a model into evaluation mode and restores
+    the previous mode on exit."""
+    return train_mode(model, False)
+
+
+# def make_model(cfg):
+#     model = eval('model.{}(cfg)'.format(cfg['model_name']))
+#     return model
 
 
 def get_alphas_sigmas(t):
