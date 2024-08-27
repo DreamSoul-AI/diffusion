@@ -26,7 +26,6 @@ process_args(args)
 rng = torch.quasirandom.SobolEngine(1, scramble=True)
 scaler = torch.cuda.amp.GradScaler()
 
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 def main():
     seeds = list(range(cfg['init_seed'], cfg['init_seed'] + cfg['num_experiments']))
@@ -77,16 +76,22 @@ def runExperiment():
         transforms.ToTensor(),
         transforms.Normalize([0.5], [0.5]),
     ])
-    train_set = datasets.CIFAR10('data', train=True, download=True, transform=tf)
-    train_dl = data.DataLoader(train_set, 100, shuffle=True,
-                           num_workers=2, persistent_workers=True, pin_memory=True)
-    val_set = datasets.CIFAR10('data', train=False, download=True, transform=tf)
-    val_dl = data.DataLoader(val_set, 100,
-                            num_workers=2, persistent_workers=True, pin_memory=True)
-    data_iterator = enumerate(tqdm(train_dl))
+    if cfg['data_name'] in ['MNIST', 'FashionMNIST', 'SVHN', 'CIFAR10', 'CIFAR100']:
+        train_set = eval('datasets.{}(root=root, train=True, download=True, transform=tf)'.format(cfg['data_name']))
+        val_set = eval('datasets.{}(root=root, train=False, download=True, transform=tf)'.format(cfg['data_name']))
+    else:
+        raise ValueError('Not valid data name')
+    #train_set = datasets.CIFAR10('data', train=True, download=True, transform=tf)
+    train_dl = data.DataLoader(train_set, cfg['batch_size'], shuffle=True,
+                           num_workers=cfg['num_workers'], persistent_workers=True, pin_memory=True)
+    #val_set = datasets.CIFAR10('data', train=False, download=True, transform=tf)
+    val_dl = data.DataLoader(val_set, cfg['batch_size'],
+                            num_workers=cfg['num_workers'], persistent_workers=True, pin_memory=True)
+    data_iterator_train = enumerate(tqdm(train_dl))
+    data_iterator_test = enumerate(tqdm(val_dl))
     while cfg['step'] < cfg['num_steps']:
-        train(data_iterator, model, optimizer, scheduler, logger)
-        #test(data_loader['test'], model, logger)
+        train(data_iterator_train, model, optimizer, scheduler, logger)
+        test(data_iterator_test, model, logger)
         result = {'cfg': cfg, 'model': model.state_dict(),
                   'optimizer': optimizer.state_dict(), 'scheduler': scheduler.state_dict(),
                   'logger': logger.state_dict()}
@@ -99,18 +104,18 @@ def runExperiment():
 
 def train(data_loader, model, optimizer, scheduler, logger):
     #model.train(True)
-    model.to(device)
+    model.to(cfg['device'])
     start_time = time.time()
     with logger.profiler:
         for i, (reals, classes) in data_loader:
             optimizer.zero_grad()
             if i % cfg['step_period'] == 0 and cfg['profile']:
                 logger.profiler.step()
-            #input_size = input['data'].size(0)
-            reals = reals.to(device)
+            input_size = reals.size(0)
+            reals = reals.to(cfg['device'])
             input = reals
-            classes = classes.to(device)
-            t = rng.draw(reals.shape[0])[:, 0].to(device)
+            classes = classes.to(cfg['device'])
+            t = rng.draw(reals.shape[0])[:, 0].to(cfg['device'])
             output = model(reals, t, classes)
             loss = output['loss']
             scaler.scale(loss).backward()
@@ -151,12 +156,15 @@ def train(data_loader, model, optimizer, scheduler, logger):
 
 def test(data_loader, model, logger):
     with torch.no_grad():
-        model.train(False)
-        for i, input in enumerate(data_loader):
-            input_size = input['data'].size(0)
-            input = to_device(input, cfg['device'])
-            t = rng.draw(input['data'].shape[0])[:, 0].to(cfg['device'])
-            output = model(input['data'], t, input['target'])
+        #model.train(False)
+        for i, (reals, classes) in enumerate(data_loader):
+            input_size = reals.size(0)
+            #input = to_device(input, cfg['device'])
+            reals = reals.to(cfg['device'])
+            classes = classes.to(cfg['device'])
+            input = reals
+            t = rng.draw(reals.shape[0])[:, 0].to(cfg['device'])
+            output = model(reals, t, classes)
             evaluation = logger.evaluate('test', 'batch', input, output)
             logger.append(evaluation, 'test', input_size)
             logger.add('test', input, output)
