@@ -96,5 +96,5 @@ class DiffusionEpsilon(nn.Module):
 
 def diffusionEpsilon(cfg):
     model = DiffusionEpsilon()
-    model.apply(init_param)
+    # model.apply(init_param)
     return model

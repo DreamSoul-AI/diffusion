@@ -96,5 +96,5 @@ class DiffusionXzero(nn.Module):
 
 def diffusionXzero(cfg):
     model = DiffusionXzero()
-    model.apply(init_param)
+    # model.apply(init_param)
     return model

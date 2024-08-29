@@ -85,5 +85,5 @@ class DiffusionV(nn.Module):
 
 def diffusionV(cfg):
     model = DiffusionV()
-    model.apply(init_param)
+    # model.apply(init_param)
     return model
