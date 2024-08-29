@@ -94,7 +94,7 @@ class DiffusionXzero(nn.Module):
         + sqrt_one_minus_alphas_cumprod_t.to(device) * noise.to(device), noise.to(cfg['device'])
 
 
-def diffusionX(cfg):
+def diffusionXzero(cfg):
     model = DiffusionXzero()
     model.apply(init_param)
     return model

@@ -5,5 +5,5 @@ from .Diffusion_Xprev import *
 from .Diffusion_Xzero import *
 
 def make_model(cfg):
-    model = eval('model.{}(cfg)'.format(cfg['model_name']))
+    model = eval('{}(cfg)'.format(cfg['model_name']))
     return model

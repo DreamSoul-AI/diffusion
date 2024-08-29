@@ -25,6 +25,7 @@ process_args(args)
 
 rng = torch.quasirandom.SobolEngine(1, scramble=True)
 scaler = torch.cuda.amp.GradScaler()
+root = 'data'
 
 
 def main():
@@ -157,9 +158,11 @@ def train(data_loader, model, optimizer, scheduler, logger):
 def test(data_loader, model, logger):
     with torch.no_grad():
         #model.train(False)
-        for i, (reals, classes) in enumerate(data_loader):
+        # for i, (reals, classes) in enumerate(data_loader):
+        for i, (idx, data) in enumerate(data_loader):
+            reals = data[0]
+            classes = data[1]
             input_size = reals.size(0)
-            #input = to_device(input, cfg['device'])
             reals = reals.to(cfg['device'])
             classes = classes.to(cfg['device'])
             input = reals
@@ -168,13 +171,13 @@ def test(data_loader, model, logger):
             evaluation = logger.evaluate('test', 'batch', input, output)
             logger.append(evaluation, 'test', input_size)
             logger.add('test', input, output)
-        evaluation = logger.evaluate('test', 'full')
-        logger.append(evaluation, 'test', input_size)
-        info = {'info': ['Model: {}'.format(cfg['tag']),
-                         'Test Epoch: {}({:.0f}%)'.format(cfg['step'] // cfg['eval_period'], 100.)]}
-        logger.append(info, 'test')
-        print(logger.write('test'))
-        logger.save(True)
+            evaluation = logger.evaluate('test', 'full')
+            logger.append(evaluation, 'test', input_size)
+            info = {'info': ['Model: {}'.format(cfg['tag']),
+                            'Test Epoch: {}({:.0f}%)'.format(cfg['step'] // cfg['eval_period'], 100.)]}
+            logger.append(info, 'test')
+            print(logger.write('test'))
+            logger.save(True)
     return
 
 
