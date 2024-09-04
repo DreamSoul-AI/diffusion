@@ -35,7 +35,7 @@ def make_control(control_name):
 def make_all_controls(mode):
     if mode == 'base':
         data_names = ['MNIST', 'CIFAR10']
-        model_names = ['diffusionEpsilon', 'diffusionX', 'diffusionV']
+        model_names = ['linear', 'mlp', 'cnn', 'resnet18']
         control_name = [[data_names, model_names]]
         controls = make_control(control_name)
     else:
@@ -153,10 +153,10 @@ def make_df(processed_result, mode):
 
 
 def make_vis_history(df_history):
-    label_dict = {'diffusionEpsilon': 'Diffusion-Epsilon', 'diffusionX': 'Diffusion-X', 'diffusionV': 'Diffusion-V'}
-    color_dict = {'diffusionEpsilon': 'red', 'diffusionX': 'orange', 'diffusionV': 'blue'}
-    linestyle_dict = {'diffusionEpsilon': '-', 'diffusionX': '--', 'diffusionV': ':'}
-    marker_dict = {'diffusionEpsilon': 'o', 'diffusionX': 's', 'diffusionV': 'p'}
+    label_dict = {'linear': 'Linear', 'mlp': 'MLP', 'cnn': 'CNN', 'resnet18': 'ResNet18'}
+    color_dict = {'linear': 'red', 'mlp': 'orange', 'cnn': 'blue', 'resnet18': 'dodgerblue'}
+    linestyle_dict = {'linear': '-', 'mlp': '--', 'cnn': ':', 'resnet18': '-.'}
+    marker_dict = {'linear': 'o', 'mlp': 's', 'cnn': 'p', 'resnet18': 'd'}
     loc_dict = {'Accuracy': 'lower right', 'Loss': 'upper right'}
     fontsize_dict = {'legend': 12, 'label': 16, 'ticks': 16}
     figsize = (6.4, 4.8)

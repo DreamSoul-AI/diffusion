@@ -10,10 +10,6 @@ from dataset import make_dataset, make_data_loader, process_dataset
 from metric import make_logger
 from model import make_model, make_optimizer, make_scheduler
 from module import check, resume, to_device, process_control
-from torch.utils import data
-from torchvision import datasets, transforms, utils
-from torchvision.transforms import functional as TF
-from tqdm.notebook import tqdm, trange
 
 cudnn.benchmark = True
 parser = argparse.ArgumentParser(description='cfg')
@@ -25,7 +21,6 @@ process_args(args)
 
 rng = torch.quasirandom.SobolEngine(1, scramble=True)
 scaler = torch.cuda.amp.GradScaler()
-root = 'data'
 
 
 def main():
@@ -69,30 +64,13 @@ def runExperiment():
         scheduler.load_state_dict(result['scheduler'])
         logger.load_state_dict(result['logger'])
         logger.reset()
-    #data_loader = make_data_loader(dataset, cfg[cfg['tag']]['optimizer']['batch_size'], cfg['num_steps'],
-                                   #cfg['step'], cfg['step_period'], cfg['pin_memory'], cfg['num_workers'],
-                                   #cfg['collate_mode'], cfg['seed'])
-    #data_iterator = enumerate(data_loader['train'])
-    tf = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize([0.5], [0.5]),
-    ])
-    if cfg['data_name'] in ['MNIST', 'FashionMNIST', 'SVHN', 'CIFAR10', 'CIFAR100']:
-        train_set = eval('datasets.{}(root=root, train=True, download=True, transform=tf)'.format(cfg['data_name']))
-        val_set = eval('datasets.{}(root=root, train=False, download=True, transform=tf)'.format(cfg['data_name']))
-    else:
-        raise ValueError('Not valid data name')
-    #train_set = datasets.CIFAR10('data', train=True, download=True, transform=tf)
-    train_dl = data.DataLoader(train_set, cfg['batch_size'], shuffle=True,
-                           num_workers=cfg['num_workers'], persistent_workers=True, pin_memory=True)
-    #val_set = datasets.CIFAR10('data', train=False, download=True, transform=tf)
-    val_dl = data.DataLoader(val_set, cfg['batch_size'],
-                            num_workers=cfg['num_workers'], persistent_workers=True, pin_memory=True)
-    data_iterator_train = enumerate(tqdm(train_dl))
-    data_iterator_test = enumerate(tqdm(val_dl))
+    data_loader = make_data_loader(dataset, cfg[cfg['tag']]['optimizer']['batch_size'], cfg['num_steps'],
+                                   cfg['step'], cfg['step_period'], cfg['pin_memory'], cfg['num_workers'],
+                                   cfg['collate_mode'], cfg['seed'])
+    data_iterator = enumerate(data_loader['train'])
     while cfg['step'] < cfg['num_steps']:
-        train(data_iterator_train, model, optimizer, scheduler, logger)
-        test(data_iterator_test, model, logger)
+        train(data_iterator, model, optimizer, scheduler, logger)
+        test(data_loader['test'], model, logger)
         result = {'cfg': cfg, 'model': model.state_dict(),
                   'optimizer': optimizer.state_dict(), 'scheduler': scheduler.state_dict(),
                   'logger': logger.state_dict()}
@@ -104,28 +82,20 @@ def runExperiment():
 
 
 def train(data_loader, model, optimizer, scheduler, logger):
-    #model.train(True)
-    model.to(cfg['device'])
+    model.train(True)
     start_time = time.time()
     with logger.profiler:
         for i, (reals, classes) in data_loader:
-            optimizer.zero_grad()
             if i % cfg['step_period'] == 0 and cfg['profile']:
                 logger.profiler.step()
             input_size = reals.size(0)
-            reals = reals.to(cfg['device'])
-            input = reals
-            classes = classes.to(cfg['device'])
+            input = to_device(reals, cfg['device'])
             t = rng.draw(reals.shape[0])[:, 0].to(cfg['device'])
-            output = model(reals, t, classes)
+            output = model(input, t, classes)
             loss = output['loss']
             scaler.scale(loss).backward()
             scaler.step(optimizer)
             scaler.update()
-
-            if i % 50 == 0:
-                tqdm.write(f'Iteration: {i}, loss: {loss.item():g}')
-
             if (i + 1) % cfg['step_period'] == 0:
                 optimizer.step()
                 scheduler.step()
@@ -157,27 +127,22 @@ def train(data_loader, model, optimizer, scheduler, logger):
 
 def test(data_loader, model, logger):
     with torch.no_grad():
-        #model.train(False)
-        # for i, (reals, classes) in enumerate(data_loader):
-        for i, (idx, data) in enumerate(data_loader):
-            reals = data[0]
-            classes = data[1]
+        model.train(False)
+        for i, (reals, classes) in enumerate(data_loader):
             input_size = reals.size(0)
-            reals = reals.to(cfg['device'])
-            classes = classes.to(cfg['device'])
-            input = reals
+            input = to_device(input, cfg['device'])
             t = rng.draw(reals.shape[0])[:, 0].to(cfg['device'])
-            output = model(reals, t, classes)
+            output = model(input, t, classes)
             evaluation = logger.evaluate('test', 'batch', input, output)
             logger.append(evaluation, 'test', input_size)
             logger.add('test', input, output)
-            evaluation = logger.evaluate('test', 'full')
-            logger.append(evaluation, 'test', input_size)
-            info = {'info': ['Model: {}'.format(cfg['tag']),
-                            'Test Epoch: {}({:.0f}%)'.format(cfg['step'] // cfg['eval_period'], 100.)]}
-            logger.append(info, 'test')
-            print(logger.write('test'))
-            logger.save(True)
+        evaluation = logger.evaluate('test', 'full')
+        logger.append(evaluation, 'test', input_size)
+        info = {'info': ['Model: {}'.format(cfg['tag']),
+                         'Test Epoch: {}({:.0f}%)'.format(cfg['step'] // cfg['eval_period'], 100.)]}
+        logger.append(info, 'test')
+        print(logger.write('test'))
+        logger.save(True)
     return
 
 

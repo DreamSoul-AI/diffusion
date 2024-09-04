@@ -6,7 +6,7 @@ from .backbone import *
 from config import cfg
 
 
-class DiffusionXzero(nn.Module):
+class DiffusionV(nn.Module):
     def __init__(self):
         super().__init__()
         c = 64  # The base channel count
@@ -55,11 +55,10 @@ class DiffusionXzero(nn.Module):
 
     def forward(self, x_0, t, cond):
         output = {}
-        x_pred = self.forward_diffusion_pass(x_0, t, cond)
-        output['target'] = x_pred
-
-        x_noisy, noise = self.forward_diffusion_sample(x_0, t, cfg['device'])
-        output['loss'] = F.mse_loss(x_noisy, x_pred)
+        noised_reals, targets, classes_drop = self.forward_diffusion_sample(x_0, t, cfg['device'])
+        v = self.forward_diffusion_pass(noised_reals, t, classes_drop)
+        output['target'] = v
+        output['loss'] = F.mse_loss(v, targets)
         return output
 
     def forward_diffusion_pass(self, x_0, t, cond):
@@ -67,34 +66,24 @@ class DiffusionXzero(nn.Module):
         class_embed = expand_to_planes(self.class_embed(cond + 1), x_0.shape)
         return self.net(torch.cat([x_0, class_embed, timestep_embed], dim=1))
 
-    def forward_diffusion_sample(self, x_0, t, device="cpu"):
-        """
-        Takes an image and a timestep as input and
-        returns the noisy version of it
-        """
-        alphas, sigmas = get_alphas_sigmas(t) # sigma: noise level
+    def forward_diffusion_sample(x_0, t, classes, device="cpu"):
+        # Calculate the noise schedule parameters for those timesteps
+        alphas, sigmas = get_alphas_sigmas(t)
 
-        betas = sigmas
-        alphas = 1. - betas
-        # Pre-calculate different terms for closed form
+        # Combine the ground truth images and the noise
+        alphas = alphas[:, None, None, None]
+        sigmas = sigmas[:, None, None, None]
         noise = torch.randn_like(x_0)
-        alphas_cumprod = torch.cumprod(alphas, axis=0)
-        alphas_cumprod_prev = F.pad(alphas_cumprod[:-1], (1, 0), value=1.0)
-        sqrt_recip_alphas = torch.sqrt(1.0 / alphas)
-        sqrt_alphas_cumprod = torch.sqrt(alphas_cumprod)
-        sqrt_one_minus_alphas_cumprod = torch.sqrt(1. - alphas_cumprod)
-        posterior_variance = betas * (1. - alphas_cumprod_prev) / (1. - alphas_cumprod)
+        noised_reals = x_0 * alphas + noise * sigmas
+        targets = noise * alphas - x_0 * sigmas
 
-        sqrt_alphas_cumprod_t = get_index_from_list(sqrt_alphas_cumprod, t, x_0.shape)
-        sqrt_one_minus_alphas_cumprod_t = get_index_from_list(
-            sqrt_one_minus_alphas_cumprod, t, x_0.shape
-        )
-        # mean + variance
-        return sqrt_alphas_cumprod_t.to(device) * x_0.to(device) \
-        + sqrt_one_minus_alphas_cumprod_t.to(device) * noise.to(device), noise.to(cfg['device'])
+        # Drop out the class on 20% of the examples
+        to_drop = torch.rand(classes.shape, device=classes.device).le(0.2)
+        classes_drop = torch.where(to_drop, -torch.ones_like(classes), classes)
+        return noised_reals, targets, classes_drop
 
 
-def diffusionXzero(cfg):
-    model = DiffusionXzero()
-    # model.apply(init_param)
+def diffusionV(cfg):
+    model = DiffusionV()
+    model.apply(init_param)
     return model

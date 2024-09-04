@@ -1,7 +1,6 @@
 import torch
 import torch.nn.functional as F
 from collections import defaultdict
-from module import recur
 from torchmetrics.image.fid import FrechetInceptionDistance
 
 
@@ -11,8 +10,7 @@ def make_metric(split, **kwargs):
     if data_name in ['MNIST', 'FashionMNIST', 'SVHN', 'CIFAR10', 'CIFAR100']:
         best = -float('inf')
         best_direction = 'up'
-        # best_metric_name = 'Accuracy'
-        best_metric_name = 'FID'
+        best_metric_name = 'Accuracy'
         for k in metric_name:
             metric_name[k].extend(['Loss', 'FID'])
     else:
@@ -29,6 +27,7 @@ def FID(output, target, topk=1):
         fid.update(output, real=False)
         fid_score = float(fid.compute())
     return fid_score
+
 
 def Accuracy(output, target, topk=1):
     with torch.no_grad():
@@ -52,12 +51,12 @@ class RMSE:
         self.reset()
 
     def reset(self):
-        self.se = torch.zeros((1,))
-        self.count = torch.zeros((1,))
+        self.se = 0
+        self.count = 0
         return
 
     def add(self, input, output):
-        self.se += F.mse_loss(output['target'], input, reduction='sum')
+        self.se += F.mse_loss(output['target'], input['target'], reduction='sum')
         self.count += output['target'].numel()
         return
 
@@ -81,16 +80,14 @@ class Metric:
                     metric[split][m] = {'mode': 'batch', 'metric': (lambda input, output: output['loss'].item())}
                 elif m == 'Accuracy':
                     metric[split][m] = {'mode': 'batch',
-                                        'metric': (
-                                            lambda input, output: recur(Accuracy, output['target'], input))}
+                                        'metric': (lambda input, output: Accuracy(output['target'], input['target']))}
                 elif m == 'FID':
                     metric[split][m] = {'mode': 'batch',
                                         'metric': (
                                             lambda input, output: recur(FID, output['target'], input))}
                 elif m == 'MSE':
                     metric[split][m] = {'mode': 'batch',
-                                        'metric': (
-                                            lambda input, output: recur(MSE, output['target'], input))}
+                                        'metric': (lambda input, output: MSE(output['target'], input['target']))}
                 elif m == 'RMSE':
                     metric[split][m] = {'mode': 'full', 'metric': RMSE()}
                 else:

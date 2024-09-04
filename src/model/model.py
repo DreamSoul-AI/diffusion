@@ -3,33 +3,13 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import math
+import model
 from transformers import get_linear_schedule_with_warmup
-from contextlib import contextmanager
-
-from config import cfg
 
 
-@contextmanager
-def train_mode(model, mode=True):
-    """A context manager that places a model into training mode and restores
-    the previous mode on exit."""
-    modes = [module.training for module in model.modules()]
-    try:
-        yield model.train(mode)
-    finally:
-        for i, module in enumerate(model.modules()):
-            module.training = modes[i]
-
-
-def eval_mode(model):
-    """A context manager that places a model into evaluation mode and restores
-    the previous mode on exit."""
-    return train_mode(model, False)
-
-
-# def make_model(cfg):
-#     model = eval('model.{}(cfg)'.format(cfg['model_name']))
-#     return model
+def make_model(cfg):
+    model = eval('model.{}(cfg)'.format(cfg['model_name']))
+    return model
 
 
 def get_alphas_sigmas(t):
@@ -37,13 +17,14 @@ def get_alphas_sigmas(t):
     noise (sigma), given a timestep."""
     return torch.cos(t * math.pi / 2), torch.sin(t * math.pi / 2)
 
+
 def get_index_from_list(vals, t, x_shape):
     """
     Returns a specific index t of a passed list of values vals
     while considering the batch dimension.
     """
     batch_size = t.shape[0]
-    out = vals.gather(-1, t.long())
+    out = vals.gather(-1, t.cpu())
     return out.reshape(batch_size, *((1,) * (len(x_shape) - 1))).to(t.device)
 
 

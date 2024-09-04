@@ -3,6 +3,7 @@ import torch.nn as nn
 from torch.nn import functional as F
 import math
 
+
 class ResidualBlock(nn.Module):
     def __init__(self, main, skip=None):
         super().__init__()
@@ -41,7 +42,7 @@ class SelfAttention2d(nn.Module):
         qkv = self.qkv_proj(self.norm(input))
         qkv = qkv.view([n, self.n_head * 3, c // self.n_head, h * w]).transpose(2, 3)
         q, k, v = qkv.chunk(3, dim=1)
-        scale = k.shape[3]**-0.25
+        scale = k.shape[3] ** -0.25
         att = ((q * scale) @ (k.transpose(2, 3) * scale)).softmax(3)
         y = (att @ v).transpose(2, 3).contiguous().view([n, c, h, w])
         return input + self.dropout(self.out_proj(y))
@@ -70,5 +71,3 @@ class FourierFeatures(nn.Module):
 
 def expand_to_planes(input, shape):
     return input[..., None, None].repeat([1, 1, shape[2], shape[3]])
-
-
