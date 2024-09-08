@@ -49,13 +49,14 @@ def io_mode(filename):
     return mode
 
 
-def check(result, path):
+def check(result, path, mode=None):
     for filename in result:
-        save(result[filename], os.path.join(path, filename), io_mode(filename))
+        mode_i = io_mode(filename) if mode is None else mode
+        save(result[filename], os.path.join(path, filename), mode_i)
     return
 
 
-def resume(path, resume_mode=True, key=None, verbose=True):
+def resume(path, resume_mode=True, key=None, verbose=True, mode=None):
     if os.path.exists(path):
         if isinstance(resume_mode, bool) and resume_mode:
             result = {}
@@ -63,14 +64,16 @@ def resume(path, resume_mode=True, key=None, verbose=True):
             for filename in filenames:
                 if not os.path.isfile(os.path.join(path, filename)) or (key is not None and filename not in key):
                     continue
-                result[filename] = load(os.path.join(path, filename), io_mode(filename))
+                mode_i = io_mode(filename) if mode is None else mode
+                result[filename] = load(os.path.join(path, filename), mode_i)
         elif isinstance(resume_mode, dict):
             result = {}
             for filename in resume_mode:
                 if not resume_mode[filename] or not os.path.isfile(os.path.join(path, filename)) or \
                         (key is not None and filename not in key):
                     continue
-                result[filename] = load(os.path.join(path, filename), io_mode(filename))
+                mode_i = io_mode(filename) if mode is None else mode
+                result[filename] = load(os.path.join(path, filename), mode_i)
         else:
             result = None
             if resume_mode and verbose:
@@ -82,3 +85,4 @@ def resume(path, resume_mode=True, key=None, verbose=True):
             print('Not exists: {}'.format(path))
         result = None
     return result
+

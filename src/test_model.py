@@ -16,8 +16,6 @@ parser.add_argument('--control_name', default=None, type=str)
 args = vars(parser.parse_args())
 process_args(args)
 
-rng = torch.quasirandom.SobolEngine(1, scramble=True)
-
 
 def main():
     seeds = list(range(cfg['init_seed'], cfg['init_seed'] + cfg['num_experiments']))
@@ -60,11 +58,10 @@ def runExperiment():
 def test(data_loader, model, logger):
     with torch.no_grad():
         model.train(False)
-        for i, (reals, classes) in enumerate(data_loader):
-            input_size = reals.size(0)
+        for i, input in enumerate(data_loader):
+            input_size = input['data'].size(0)
             input = to_device(input, cfg['device'])
-            t = rng.draw(reals.shape[0])[:, 0].to(cfg['device'])
-            output = model(input, t, classes)
+            output = model(input)
             evaluation = logger.evaluate('test', 'batch', input, output)
             logger.append(evaluation, 'test', input_size)
             logger.add('test', input, output)

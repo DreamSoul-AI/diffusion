@@ -11,6 +11,7 @@ def process_control():
     cfg['eval_period'] = 200
     # cfg['num_epochs'] = 400
     cfg['collate_mode'] = 'dict'
+    cfg['gradient_scaler'] = False
 
     cfg['model'] = {}
     cfg['model']['model_name'] = cfg['model_name']
@@ -26,6 +27,7 @@ def process_control():
     cfg['model']['resnet18'] = {'hidden_size': [64, 128, 256, 512]}
     cfg['model']['wresnet28x2'] = {'depth': 28, 'widen_factor': 2, 'drop_rate': 0.0}
     cfg['model']['wresnet28x8'] = {'depth': 28, 'widen_factor': 8, 'drop_rate': 0.0}
+    cfg['model']['diffusion'] = {'hidden_size': 64}
 
     tag = cfg['tag']
     cfg[tag] = {}

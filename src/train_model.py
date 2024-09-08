@@ -19,9 +19,6 @@ parser.add_argument('--control_name', default=None, type=str)
 args = vars(parser.parse_args())
 process_args(args)
 
-rng = torch.quasirandom.SobolEngine(1, scramble=True)
-scaler = torch.cuda.amp.GradScaler()
-
 
 def main():
     seeds = list(range(cfg['init_seed'], cfg['init_seed'] + cfg['num_experiments']))
@@ -64,12 +61,13 @@ def runExperiment():
         scheduler.load_state_dict(result['scheduler'])
         logger.load_state_dict(result['logger'])
         logger.reset()
+    scaler = torch.cuda.amp.GradScaler() if cfg['gradient_scaler'] else None
     data_loader = make_data_loader(dataset, cfg[cfg['tag']]['optimizer']['batch_size'], cfg['num_steps'],
                                    cfg['step'], cfg['step_period'], cfg['pin_memory'], cfg['num_workers'],
                                    cfg['collate_mode'], cfg['seed'])
     data_iterator = enumerate(data_loader['train'])
     while cfg['step'] < cfg['num_steps']:
-        train(data_iterator, model, optimizer, scheduler, logger)
+        train(data_iterator, model, optimizer, scaler, scheduler, logger)
         test(data_loader['test'], model, logger)
         result = {'cfg': cfg, 'model': model.state_dict(),
                   'optimizer': optimizer.state_dict(), 'scheduler': scheduler.state_dict(),
@@ -81,23 +79,27 @@ def runExperiment():
     return
 
 
-def train(data_loader, model, optimizer, scheduler, logger):
+def train(data_loader, model, optimizer, scaler, scheduler, logger):
     model.train(True)
     start_time = time.time()
     with logger.profiler:
-        for i, (reals, classes) in data_loader:
+        for i, input in data_loader:
             if i % cfg['step_period'] == 0 and cfg['profile']:
                 logger.profiler.step()
-            input_size = reals.size(0)
-            input = to_device(reals, cfg['device'])
-            t = rng.draw(reals.shape[0])[:, 0].to(cfg['device'])
-            output = model(input, t, classes)
+            input_size = input['data'].size(0)
+            input = to_device(input, cfg['device'])
+            output = model(input)
             loss = output['loss']
-            scaler.scale(loss).backward()
-            scaler.step(optimizer)
-            scaler.update()
+            if scaler is not None:
+                scaler.scale(loss).backward()
+            else:
+                loss.backward()
             if (i + 1) % cfg['step_period'] == 0:
-                optimizer.step()
+                if scaler is not None:
+                    scaler.step(optimizer)
+                    scaler.update()
+                else:
+                    optimizer.step()
                 scheduler.step()
                 optimizer.zero_grad()
             evaluation = logger.evaluate('train', 'batch', input, output)
@@ -128,11 +130,10 @@ def train(data_loader, model, optimizer, scheduler, logger):
 def test(data_loader, model, logger):
     with torch.no_grad():
         model.train(False)
-        for i, (reals, classes) in enumerate(data_loader):
-            input_size = reals.size(0)
+        for i, input in enumerate(data_loader):
+            input_size = input['data'].size(0)
             input = to_device(input, cfg['device'])
-            t = rng.draw(reals.shape[0])[:, 0].to(cfg['device'])
-            output = model(input, t, classes)
+            output = model(input)
             evaluation = logger.evaluate('test', 'batch', input, output)
             logger.append(evaluation, 'test', input_size)
             logger.add('test', input, output)

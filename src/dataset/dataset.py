@@ -24,9 +24,11 @@ def make_dataset(data_name, verbose=True):
         dataset_['test'] = eval('dataset.{}(root=root, split="test", '
                                 'transform=dataset.Compose([transforms.ToTensor()]))'.format(data_name))
         dataset_['train'].transform = dataset.Compose([
+            transforms.Resize(32),
             transforms.ToTensor(),
             transforms.Normalize(*data_stats[data_name])])
         dataset_['test'].transform = dataset.Compose([
+            transforms.Resize(32),
             transforms.ToTensor(),
             transforms.Normalize(*data_stats[data_name])])
     elif data_name in ['CIFAR10', 'CIFAR100']:
