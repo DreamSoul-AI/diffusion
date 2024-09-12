@@ -2,6 +2,7 @@ import torch
 import torch.nn.functional as F
 from collections import defaultdict
 from torchmetrics.image.fid import FrechetInceptionDistance
+from module import recur, apply_recursively
 
 
 def make_metric(split, **kwargs):
@@ -30,6 +31,10 @@ def FID(output, target, topk=1):
 
 
 def Accuracy(output, target, topk=1):
+    # logits_flattened = output.view(output.size(0), -1)
+    # predicted_labels = torch.argmax(logits_flattened, dim=1)
+    # print(predicted_labels)
+    # print(predicted_labels.size())
     with torch.no_grad():
         if target.dtype != torch.int64:
             target = (target.topk(1, -1, True, True)[1]).view(-1)
@@ -84,7 +89,7 @@ class Metric:
                 elif m == 'FID':
                     metric[split][m] = {'mode': 'batch',
                                         'metric': (
-                                            lambda input, output: recur(FID, output['target'], input))}
+                                            lambda input, output: recur(FID, output['target'], input['data']))}
                 elif m == 'MSE':
                     metric[split][m] = {'mode': 'batch',
                                         'metric': (lambda input, output: MSE(output['target'], input['target']))}

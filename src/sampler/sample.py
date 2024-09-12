@@ -15,7 +15,6 @@ from module import save, check, resume, to_device, process_control
 from config import cfg
 from IPython import display
 from matplotlib import pyplot as plt
-from model import *
 
 cudnn.benchmark = True
 parser = argparse.ArgumentParser(description='cfg')
@@ -26,34 +25,6 @@ args = vars(parser.parse_args())
 process_args(args)
 
 
-def main():
-    seeds = list(range(cfg['init_seed'], cfg['init_seed'] + cfg['num_experiments']))
-    for i in range(cfg['num_experiments']):
-        tag_list = [str(seeds[i]), cfg['control_name']]
-        cfg['tag'] = '_'.join([x for x in tag_list if x])
-        process_control()
-        runExperiment()
-    return
-
-
-@torch.no_grad()
-@torch.random.fork_rng()
-def runExperiment():
-    tqdm.write('\nSampling...')
-    torch.manual_seed(cfg['seed'])
-
-    noise = torch.randn([100, 3, 32, 32], device=cfg['device'])
-    sample = make_sample(noise)
-
-    grid = utils.make_grid(sample, 10).cpu()
-    filename = f'demo_{cfg['tag']}.png'
-    TF.to_pil_image(grid.add(1).div(2).clamp(0, 1)).save(filename)
-    display.display(display.Image(filename))
-    tqdm.write('')
-
-    save(sample, cfg['sample_path'])
-    return
-
 def make_sample(x):
     classes = torch.arange(10, device=cfg['device']).repeat_interleave(10, 0)
     model = make_model(cfg['model'])
@@ -62,6 +33,7 @@ def make_sample(x):
     guidance_scale = cfg['guidance_scale']
     eta = 1. if not cfg['use_ddim'] else 0.
     # The amount of noise to add each timestep when sampling
+    # controls the scale of the variance (0 is DDIM, and 1 is one type of DDPM)
     # 0 = no noise (DDIM)
     # 1 = full noise (DDPM)
     t = torch.linspace(1, 0, steps + 1)[:-1]
