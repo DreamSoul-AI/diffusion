@@ -2,7 +2,6 @@ import torch
 import torch.nn.functional as F
 from collections import defaultdict
 from torchmetrics.image.fid import FrechetInceptionDistance
-from module import recur, apply_recursively
 
 
 def make_metric(split, **kwargs):
@@ -13,14 +12,14 @@ def make_metric(split, **kwargs):
         best_direction = 'up'
         best_metric_name = 'Accuracy'
         for k in metric_name:
-            metric_name[k].extend(['Loss', 'FID'])
+            metric_name[k].extend(['Loss'])
     else:
         raise ValueError('Not valid data name')
     metric = Metric(metric_name, best, best_direction, best_metric_name)
     return metric
 
 
-def FID(output, target, topk=1):
+def FID(output, target):
     with torch.no_grad():
         fid = FrechetInceptionDistance(normalize=True)
         fid = fid.cuda()
@@ -31,10 +30,6 @@ def FID(output, target, topk=1):
 
 
 def Accuracy(output, target, topk=1):
-    # logits_flattened = output.view(output.size(0), -1)
-    # predicted_labels = torch.argmax(logits_flattened, dim=1)
-    # print(predicted_labels)
-    # print(predicted_labels.size())
     with torch.no_grad():
         if target.dtype != torch.int64:
             target = (target.topk(1, -1, True, True)[1]).view(-1)
@@ -88,8 +83,7 @@ class Metric:
                                         'metric': (lambda input, output: Accuracy(output['target'], input['target']))}
                 elif m == 'FID':
                     metric[split][m] = {'mode': 'batch',
-                                        'metric': (
-                                            lambda input, output: recur(FID, output['target'], input['data']))}
+                                        'metric': (lambda input, output: FID(output['target'], input['data']))}
                 elif m == 'MSE':
                     metric[split][m] = {'mode': 'batch',
                                         'metric': (lambda input, output: MSE(output['target'], input['target']))}

@@ -1,0 +1,40 @@
+from .model import *
+from .net import *
+
+
+class Diffusion(nn.Module):
+    def __init__(self, core):
+        super().__init__()
+        self.rng = torch.quasirandom.SobolEngine(1, scramble=True)
+        self.core = core
+
+    def forward(self, input):
+        output = {}
+        x_0 = input['data']
+        t = self.rng.draw(x_0.shape[0])[:, 0].to(x_0.device)
+        cond = input['target']
+        output['target'], output['loss'] = self.core(x_0, t, cond)
+        return output
+
+
+def get_index_from_list(vals, t, x_shape):
+    """
+    Returns a specific index t of a passed list of values vals
+    while considering the batch dimension.
+    """
+    batch_size = t.shape[0]
+    out = vals.gather(-1, t)
+    out = out.reshape(batch_size, *((1,) * (len(x_shape) - 1)))
+    return out
+
+
+def get_alphas_sigmas(t):
+    """Returns the scaling factors for the clean image (alpha) and for the
+    noise (sigma), given a timestep."""
+    return torch.cos(t * math.pi / 2), torch.sin(t * math.pi / 2)
+
+
+def diffusion(core, cfg):
+    model = Diffusion(core)
+    # model.apply(init_param)
+    return model

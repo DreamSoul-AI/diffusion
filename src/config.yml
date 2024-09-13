@@ -2,7 +2,7 @@
 # control
 control:
   data_name: MNIST
-  model_name: diffusionxzero
+  model_name: v
 # experiment
 pin_memory: True
 num_workers: 2

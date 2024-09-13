@@ -8,25 +8,9 @@ from transformers import get_linear_schedule_with_warmup
 
 
 def make_model(cfg):
-    model = eval('model.{}(cfg)'.format(cfg['model_name']))
-    return model
-
-
-def get_alphas_sigmas(t):
-    """Returns the scaling factors for the clean image (alpha) and for the
-    noise (sigma), given a timestep."""
-    return torch.cos(t * math.pi / 2), torch.sin(t * math.pi / 2)
-
-
-def get_index_from_list(vals, t, x_shape):
-    """
-    Returns a specific index t of a passed list of values vals
-    while considering the batch dimension.
-    """
-    batch_size = t.shape[0]
-    out = vals.gather(-1, t.long())
-    out = out.reshape(batch_size, *((1,) * (len(x_shape) - 1)))
-    return out
+    core = eval('model.{}(cfg)'.format(cfg['model_name']))
+    model_ = model.diffusion(core, cfg)
+    return model_
 
 
 def make_loss(output, input):
