@@ -13,20 +13,12 @@ def make_metric(split, **kwargs):
         best_metric_name = 'Accuracy'
         for k in metric_name:
             metric_name[k].extend(['Loss'])
+            if k == 'test':
+                metric_name[k].extend(['FID'])
     else:
         raise ValueError('Not valid data name')
     metric = Metric(metric_name, best, best_direction, best_metric_name)
     return metric
-
-
-def FID(output, target):
-    with torch.no_grad():
-        fid = FrechetInceptionDistance(normalize=True)
-        fid = fid.cuda()
-        fid.update(target, real=True)
-        fid.update(output, real=False)
-        fid_score = float(fid.compute())
-    return fid_score
 
 
 def Accuracy(output, target, topk=1):
@@ -56,14 +48,46 @@ class RMSE:
         return
 
     def add(self, input, output):
-        self.se += F.mse_loss(output['target'], input['target'], reduction='sum')
-        self.count += output['target'].numel()
+        with torch.no_grad():
+            self.se += F.mse_loss(output['target'], input['target'], reduction='sum')
+            self.count += output['target'].numel()
         return
 
     def __call__(self, input, output):
-        rmse = ((self.se / self.count) ** 0.5).item()
+        with torch.no_grad():
+            rmse = ((self.se / self.count) ** 0.5).item()
         self.reset()
         return rmse
+
+
+class FID:
+    def __init__(self):
+        self.fid = FrechetInceptionDistance(normalize=True)
+        self.reset()
+
+    def reset(self):
+        self.fid.reset()
+        return
+
+    def add(self, input, output):
+        with torch.no_grad():
+            if input['data'].size(1) == 1:
+                input_data = input['data'].expand(-1, 3, -1, -1)
+                output_data = output['data'].expand(-1, 3, -1, -1)
+            else:
+                input_data = input['data']
+                output_data = output['data']
+            if input_data.device != self.fid.device:
+                self.fid.to(input_data.device)
+            self.fid.update(input_data, real=True)
+            self.fid.update(output_data, real=False)
+        return
+
+    def __call__(self, input, output):
+        with torch.no_grad():
+            fid = float(self.fid.compute())
+        self.reset()
+        return fid
 
 
 class Metric:
@@ -81,14 +105,13 @@ class Metric:
                 elif m == 'Accuracy':
                     metric[split][m] = {'mode': 'batch',
                                         'metric': (lambda input, output: Accuracy(output['target'], input['target']))}
-                elif m == 'FID':
-                    metric[split][m] = {'mode': 'batch',
-                                        'metric': (lambda input, output: FID(output['target'], input['data']))}
                 elif m == 'MSE':
                     metric[split][m] = {'mode': 'batch',
                                         'metric': (lambda input, output: MSE(output['target'], input['target']))}
                 elif m == 'RMSE':
                     metric[split][m] = {'mode': 'full', 'metric': RMSE()}
+                elif m == 'FID':
+                    metric[split][m] = {'mode': 'full', 'metric': FID()}
                 else:
                     raise ValueError('Not valid metric name')
         return metric

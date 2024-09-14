@@ -13,7 +13,7 @@ class Diffusion(nn.Module):
         x_0 = input['data']
         t = self.rng.draw(x_0.shape[0])[:, 0].to(x_0.device)
         cond = input['target']
-        output['target'], output['loss'] = self.core(x_0, t, cond)
+        output['data'], output['loss'] = self.core(x_0, t, cond)
         return output
 
 
