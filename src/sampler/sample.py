@@ -28,6 +28,7 @@ process_args(args)
 def make_sample(x):
     classes = torch.arange(10, device=cfg['device']).repeat_interleave(10, 0)
     model = make_model(cfg['model'])
+    model.to(cfg['device'])
     cfg['sample_path'] = os.path.join('output', 'sample', cfg['tag'])
     steps = cfg['steps']
     guidance_scale = cfg['guidance_scale']
@@ -38,16 +39,8 @@ def make_sample(x):
     # 1 = full noise (DDPM)
     t = torch.linspace(1, 0, steps + 1)[:-1]
 
-    if cfg['model'] == 'diffusionV':
-        sample = ddim_sample_loop_V(model, x, t, steps, eta, classes, guidance_scale)
-    elif cfg['model'] == 'diffusionEpsilon':
-        sample = ddim_sample_loop_Epsilon(model, x, t, steps, eta, classes, guidance_scale)
-    elif cfg['model'] == 'diffusionXzero':
-        sample = ddim_sample_loop_Xzero(model, x, t, steps, eta, classes, guidance_scale)
-    elif cfg['model'] == 'diffusionXprev':
-        sample = ddim_sample_loop_Xprev(model, x, t, steps, eta, classes, guidance_scale)
-    else:
-        raise ValueError('Not valid sample function')
+    sample = ddim_sample_loop_V(model, x, t, steps, eta, classes, guidance_scale)
+
     return sample
 
 @torch.no_grad()
@@ -58,6 +51,8 @@ def ddim_sample_loop_V(model, x, t, steps, eta, classes, guidance_scale=1.):
     # Create the noise schedule
     alphas, sigmas = get_alphas_sigmas(t)
 
+    input = {}
+
     # The sampling loop
     for i in trange(steps):
 
@@ -66,7 +61,10 @@ def ddim_sample_loop_V(model, x, t, steps, eta, classes, guidance_scale=1.):
             x_in = torch.cat([x, x])
             ts_in = torch.cat([ts, ts])
             classes_in = torch.cat([-torch.ones_like(classes), classes])
-            v_uncond, v_cond = model(x_in, ts_in * t[i], classes_in)['target'].float().chunk(2)
+            input['data'] = x_in
+            input['target'] = ts_in.long()
+            
+            v_uncond, v_cond = model(input)['data'].float().chunk(2)
         v = v_uncond + guidance_scale * (v_cond - v_uncond)
 
         # Predict the noise and the denoised image
