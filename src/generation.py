@@ -1,6 +1,8 @@
 from sampler import *
 from model import *
 from config import cfg
+import os
+from PIL import Image
 
 cudnn.benchmark = True
 parser = argparse.ArgumentParser(description='cfg')
@@ -26,16 +28,23 @@ def runExperiment():
     tqdm.write('\nSampling...')
     torch.manual_seed(cfg['seed'])
 
-    noise = torch.randn([100, 3, 32, 32], device=cfg['device'])
+    noise = torch.randn([100, 1, 32, 32], device=cfg['device']) # note: the channel here has to be the same as dataset trained
     sample = make_sample(noise)
 
-    grid = utils.make_grid(sample, 10).cpu()
-    filename = f'demo_{cfg['tag']}.png'
-    TF.to_pil_image(grid.add(1).div(2).clamp(0, 1)).save(filename)
-    display.display(display.Image(filename))
-    tqdm.write('')
-
-    save(sample, cfg['sample_path'])
+    output_dir = './generations/'
+    # Loop through the batch of images
+    for i in range(sample.size(0)):
+        # Get the single image tensor
+        image_tensor = sample[i]  # Shape: (channels, 32, 32)
+    
+        # Squeeze the tensor to remove the channel dimension
+        image_tensor = image_tensor.squeeze(0)  # Shape: (32, 32)
+        
+        # Convert to a PIL Image
+        image = Image.fromarray(image_tensor.cpu().numpy(), mode='L')  # 'L' mode for grayscale
+    
+        # Save the image
+        image.save(os.path.join(output_dir, f'image_{i}.jpg'))
     return
 
 if __name__ == "__main__":
