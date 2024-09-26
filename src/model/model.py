@@ -2,14 +2,14 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-import math
 import model
 from transformers import get_linear_schedule_with_warmup
 
 
 def make_model(cfg):
-    core = eval('model.{}(cfg)'.format(cfg['model_name']))
-    model_ = model.diffusion(core, cfg)
+    backbone = eval('model.{}(cfg)'.format(cfg['model_name']))
+    formulation = eval('model.{}(backbone, cfg)'.format(cfg['formulation_mode']))
+    model_ = model.diffusion(formulation, cfg)
     return model_
 
 

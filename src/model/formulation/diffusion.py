@@ -1,6 +1,5 @@
-from .model import *
-from .net import *
-
+import math
+from model.model import *
 
 class Diffusion(nn.Module):
     def __init__(self, core):
@@ -15,7 +14,6 @@ class Diffusion(nn.Module):
         cond = input['target']
         output['data'], output['loss'] = self.core(x_0, t, cond)
         return output
-
 
 def get_index_from_list(vals, t, x_shape):
     """

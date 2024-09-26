@@ -6,6 +6,7 @@ from torchmetrics.image.fid import FrechetInceptionDistance
 
 def make_metric(split, **kwargs):
     data_name = kwargs['data_name']
+    run_mode = kwargs['run_mode']
     metric_name = {k: [] for k in split}
     if data_name in ['MNIST', 'FashionMNIST', 'SVHN', 'CIFAR10', 'CIFAR100']:
         best = -float('inf')
@@ -13,7 +14,9 @@ def make_metric(split, **kwargs):
         best_metric_name = 'Accuracy'
         for k in metric_name:
             metric_name[k].extend(['Loss'])
-            if k == 'test':
+            if run_mode == 'train' and k == 'test':
+                pass
+            elif run_mode == 'test' and k == 'test':
                 metric_name[k].extend(['FID'])
     else:
         raise ValueError('Not valid data name')

@@ -43,6 +43,7 @@ def make_sample(x):
 
     return sample
 
+
 @torch.no_grad()
 def ddim_sample_loop_V(model, x, t, steps, eta, classes, guidance_scale=1.):
     """Draws samples from a model given starting noise."""
@@ -63,7 +64,7 @@ def ddim_sample_loop_V(model, x, t, steps, eta, classes, guidance_scale=1.):
             classes_in = torch.cat([-torch.ones_like(classes), classes])
             input['data'] = x_in
             input['target'] = ts_in.long()
-            
+
             v_uncond, v_cond = model(input)['data'].float().chunk(2)
         v = v_uncond + guidance_scale * (v_cond - v_uncond)
 
@@ -76,13 +77,13 @@ def ddim_sample_loop_V(model, x, t, steps, eta, classes, guidance_scale=1.):
         if i < steps - 1:
             # If eta > 0, adjust the scaling factor for the predicted noise
             # downward according to the amount of additional noise to add
-            ddim_sigma = eta * (sigmas[i + 1]**2 / sigmas[i]**2).sqrt() * \
-                (1 - alphas[i]**2 / alphas[i + 1]**2).sqrt()
-            adjusted_sigma = (sigmas[i + 1]**2 - ddim_sigma**2).sqrt()
+            ddim_sigma = eta * (sigmas[i + 1] ** 2 / sigmas[i] ** 2).sqrt() * \
+                         (1 - alphas[i] ** 2 / alphas[i + 1] ** 2).sqrt()
+            adjusted_sigma = (sigmas[i + 1] ** 2 - ddim_sigma ** 2).sqrt()
 
             # Recombine the predicted noise and predicted denoised image in the
             # correct proportions for the next step
-            x = pred * alphas[i + 1] + eps * adjusted_sigma # ddim eq(12)
+            x = pred * alphas[i + 1] + eps * adjusted_sigma  # ddim eq(12)
 
             # Add the correct amount of fresh noise
             if eta:
@@ -94,7 +95,7 @@ def ddim_sample_loop_V(model, x, t, steps, eta, classes, guidance_scale=1.):
 
 @torch.no_grad()
 def ddim_sample_loop_Epsilon(model, x, t, steps, eta, classes, guidance_scale=1.):
-    alphas, sigmas = get_alphas_sigmas(cfg['steps']) # sigma: noise level
+    alphas, sigmas = get_alphas_sigmas(cfg['steps'])  # sigma: noise level
 
     # Pre-calculate different terms for closed form
     alphas_cumprod = torch.cumprod(alphas, axis=0)
@@ -114,21 +115,21 @@ def ddim_sample_loop_Epsilon(model, x, t, steps, eta, classes, guidance_scale=1.
     for i in trange(steps):
         # Call model (current image - noise prediction)
         pred = sqrt_recip_alphas_t * (
-            x - sigma_t * model(x, t)['target'] / sqrt_one_minus_alphas_cumprod_t
-        ) # Epsilon model output is the predicted noise
+                x - sigma_t * model(x, t)['target'] / sqrt_one_minus_alphas_cumprod_t
+        )  # Epsilon model output is the predicted noise
         posterior_variance_t = get_index_from_list(posterior_variance, t, x.shape)
         eps = model(x, t)['target']
 
         if i < steps - 1:
-            ddim_sigma = eta * (sigmas[i + 1]**2 / sigmas[i]**2).sqrt() * \
-                (1 - alphas[i]**2 / alphas[i + 1]**2).sqrt()
-            adjusted_sigma = (sigmas[i + 1]**2 - ddim_sigma**2).sqrt()
-            x = pred * alphas[i + 1] + eps * adjusted_sigma # ddim eq(12)
+            ddim_sigma = eta * (sigmas[i + 1] ** 2 / sigmas[i] ** 2).sqrt() * \
+                         (1 - alphas[i] ** 2 / alphas[i + 1] ** 2).sqrt()
+            adjusted_sigma = (sigmas[i + 1] ** 2 - ddim_sigma ** 2).sqrt()
+            x = pred * alphas[i + 1] + eps * adjusted_sigma  # ddim eq(12)
 
             # Add the correct amount of fresh noise
             if eta:
                 x += torch.randn_like(x) * ddim_sigma
-        
+
     return pred
 
 

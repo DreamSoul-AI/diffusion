@@ -1,10 +1,7 @@
-import torch
-import torch.nn as nn
-from torch.nn import functional as F
-from .backbone import *
+from .layers import *
 
 
-class Net(nn.Module):
+class Base(nn.Module):
     def __init__(self, data_shape, hidden_size):
         super().__init__()
         self.data_shape = data_shape
@@ -54,6 +51,9 @@ class Net(nn.Module):
         output = self.net(input)
         return output
 
-def net(data_shape, hidden_size):
-    net = Net(data_shape, hidden_size)
-    return net
+
+def base(cfg):
+    data_shape = cfg['data_shape']
+    hidden_size = cfg['diffusion']['hidden_size']
+    model = Base(data_shape, hidden_size)
+    return model

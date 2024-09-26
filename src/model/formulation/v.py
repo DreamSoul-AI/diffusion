@@ -1,19 +1,19 @@
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
-from .net import *
 from .diffusion import get_alphas_sigmas
+from ..backbone import expand_to_planes, FourierFeatures
 
 
 class V(nn.Module):
-    def __init__(self, data_shape, hidden_size, target_size):
+    def __init__(self, backbone, data_shape, hidden_size, target_size):
         super().__init__()
         self.data_shape = data_shape
         self.hidden_size = hidden_size
         self.target_size = target_size
         self.timestep_embed = FourierFeatures(1, 16)
         self.class_embed = nn.Embedding(self.target_size + 1, 4)
-        self.net = net(data_shape, hidden_size)
+        self.backbone = backbone
 
     def forward(self, x_0, t, cond):
         noised_reals, targets, classes_drop = self.forward_diffusion_sample(x_0, t, cond)
@@ -25,7 +25,7 @@ class V(nn.Module):
     def forward_diffusion_pass(self, x_0, t, cond):
         timestep_embed = expand_to_planes(self.timestep_embed(t[:, None]), x_0.shape)
         class_embed = expand_to_planes(self.class_embed(cond + 1), x_0.shape)
-        pred = self.net(torch.cat([x_0, class_embed, timestep_embed], dim=1))
+        pred = self.backbone(torch.cat([x_0, class_embed, timestep_embed], dim=1))
         return pred
 
     def forward_diffusion_sample(self, x_0, t, classes):
@@ -45,9 +45,9 @@ class V(nn.Module):
         return noised_reals, targets, classes_drop
 
 
-def v(cfg):
+def v(backbone, cfg):
     data_shape = cfg['data_shape']
     hidden_size = cfg['diffusion']['hidden_size']
     target_size = cfg['target_size']
-    model = V(data_shape, hidden_size, target_size)
+    model = V(backbone, data_shape, hidden_size, target_size)
     return model

@@ -4,6 +4,7 @@ from config import cfg
 def process_control():
     cfg['data_name'] = cfg['control']['data_name']
     cfg['model_name'] = cfg['control']['model_name']
+    cfg['formulation_mode'] = cfg['control']['formulation_mode']
 
     cfg['batch_size'] = 256
     cfg['step_period'] = 1
@@ -15,6 +16,7 @@ def process_control():
 
     cfg['model'] = {}
     cfg['model']['model_name'] = cfg['model_name']
+    cfg['model']['formulation_mode'] = cfg['formulation_mode']
     data_shape = {'MNIST': [1, 28, 28], 'FashionMNIST': [1, 28, 28], 'SVHN': [3, 32, 32], 'CIFAR10': [3, 32, 32],
                   'CIFAR100': [3, 32, 32]}
     target_size = {'MNIST': 10, 'FashionMNIST': 10, 'SVHN': 10, 'CIFAR10': 10, 'CIFAR100': 100}

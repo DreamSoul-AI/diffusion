@@ -2,7 +2,8 @@
 # control
 control:
   data_name: MNIST
-  model_name: v
+  model_name: base
+  formulation_mode: v
 # experiment
 pin_memory: True
 num_workers: 2
