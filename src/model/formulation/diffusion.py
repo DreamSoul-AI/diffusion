@@ -21,6 +21,10 @@ def get_index_from_list(vals, t, x_shape):
     while considering the batch dimension.
     """
     batch_size = t.shape[0]
+    # Scale t to the appropriate range
+    t_scaled = t * (vals.size(0) - 1)
+    # Convert to integer indices
+    t_int = t_scaled.long()
     out = vals.gather(-1, t)
     out = out.reshape(batch_size, *((1,) * (len(x_shape) - 1)))
     return out
