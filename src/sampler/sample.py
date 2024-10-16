@@ -16,13 +16,13 @@ from config import cfg
 from IPython import display
 from matplotlib import pyplot as plt
 
-cudnn.benchmark = True
-parser = argparse.ArgumentParser(description='cfg')
-for k in cfg:
-    exec('parser.add_argument(\'--{0}\', default=cfg[\'{0}\'], type=type(cfg[\'{0}\']))'.format(k))
-parser.add_argument('--control_name', default=None, type=str)
-args = vars(parser.parse_args())
-process_args(args)
+# cudnn.benchmark = True
+# parser = argparse.ArgumentParser(description='cfg')
+# for k in cfg:
+#     exec('parser.add_argument(\'--{0}\', default=cfg[\'{0}\'], type=type(cfg[\'{0}\']))'.format(k))
+# parser.add_argument('--control_name', default=None, type=str)
+# args = vars(parser.parse_args())
+# process_args(args)
 
 
 def make_sample(x):

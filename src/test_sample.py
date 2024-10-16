@@ -38,7 +38,6 @@ def save_grid_image(tensor, path, nrow=16):
 
 def load_checkpoint(model, checkpoint_path, device):
     checkpoint = torch.load(checkpoint_path, map_location=device)
-    print(checkpoint.keys())
     model.load_state_dict(checkpoint)
     return model
 
@@ -83,7 +82,6 @@ def main():
         cfg['tag'] = '_'.join([x for x in tag_list if x])
         process_control()
         print('Experiment: {}'.format(cfg['tag']))
-        print(cfg)
         runExperiment()
     return
 
