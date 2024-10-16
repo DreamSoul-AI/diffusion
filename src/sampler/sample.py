@@ -25,49 +25,46 @@ from matplotlib import pyplot as plt
 # process_args(args)
 
 
-def make_sample(x):
-    classes = torch.arange(10, device=cfg['device']).repeat_interleave(10, 0)
-    model = make_model(cfg['model'])
-    model.to(cfg['device'])
-    cfg['sample_path'] = os.path.join('output', 'sample', cfg['tag'])
-    steps = cfg['steps']
-    guidance_scale = cfg['guidance_scale']
-    eta = 1. if not cfg['use_ddim'] else 0.
-    # The amount of noise to add each timestep when sampling
-    # controls the scale of the variance (0 is DDIM, and 1 is one type of DDPM)
-    # 0 = no noise (DDIM)
-    # 1 = full noise (DDPM)
-    t = torch.linspace(1, 0, steps + 1)[:-1]
+# def make_sample(x):
+#     classes = torch.arange(10, device=cfg['device']).repeat_interleave(10, 0)
+#     model = make_model(cfg['model'])
+#     model.to(cfg['device'])
+#     cfg['sample_path'] = os.path.join('output', 'sample', cfg['tag'])
+#     steps = cfg['steps']
+#     guidance_scale = cfg['guidance_scale']
+#     eta = 1. if not cfg['use_ddim'] else 0.
+#     # The amount of noise to add each timestep when sampling
+#     # controls the scale of the variance (0 is DDIM, and 1 is one type of DDPM)
+#     # 0 = no noise (DDIM)
+#     # 1 = full noise (DDPM)
+#     t = torch.linspace(1, 0, steps + 1)[:-1]
 
-    sample = ddim_sample_loop_V(model, x, t, steps, eta, classes, guidance_scale)
+#     sample = ddim_sample_loop_V(model, x, t, steps, eta, classes, guidance_scale)
 
-    return sample
-
+#     return sample
 
 @torch.no_grad()
-def ddim_sample_loop_V(model, x, t, steps, eta, classes, guidance_scale=1.):
+def ddim_sample_loop_V(model, x, steps, eta, classes, guidance_scale=1.):
     """Draws samples from a model given starting noise."""
     ts = x.new_ones([x.shape[0]])
-
-    # Create the noise schedule
+    
+    t = torch.linspace(1, 0, steps + 1)[:-1].to(cfg['device'])
     alphas, sigmas = get_alphas_sigmas(t)
-
+    
     input = {}
 
     # The sampling loop
     for i in trange(steps):
-
-        # Get the model output (v, the predicted velocity)
         with torch.cuda.amp.autocast():
             x_in = torch.cat([x, x])
             ts_in = torch.cat([ts, ts])
             classes_in = torch.cat([-torch.ones_like(classes), classes])
             input['data'] = x_in
-            input['target'] = ts_in.long()
-
+            input['target'] = classes_in
+            input['t'] = ts_in * t[i]
             v_uncond, v_cond = model(input)['data'].float().chunk(2)
         v = v_uncond + guidance_scale * (v_cond - v_uncond)
-
+        
         # Predict the noise and the denoised image
         pred = x * alphas[i] - v * sigmas[i]
         eps = x * sigmas[i] + v * alphas[i]
@@ -88,7 +85,6 @@ def ddim_sample_loop_V(model, x, t, steps, eta, classes, guidance_scale=1.):
             # Add the correct amount of fresh noise
             if eta:
                 x += torch.randn_like(x) * ddim_sigma
-
     # If we are on the last timestep, output the denoised image
     return pred
 

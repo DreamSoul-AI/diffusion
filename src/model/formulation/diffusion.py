@@ -8,10 +8,13 @@ class Diffusion(nn.Module):
         self.core = core
 
     def forward(self, input):
-        output = {}
         x_0 = input['data']
-        t = self.rng.draw(x_0.shape[0])[:, 0].to(x_0.device)
         cond = input['target']
+        if(self.training):
+            t = self.rng.draw(x_0.shape[0])[:, 0].to(x_0.device)
+        else:
+            t = input['t']
+        output = {}
         output['data'], output['loss'] = self.core(x_0, t, cond)
         return output
 

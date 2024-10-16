@@ -53,7 +53,12 @@ def make_sample(x):
     cfg['logger_path'] = os.path.join('output', 'logger', 'test', 'runs', cfg['tag'])
     cfg['result_path'] = os.path.join('output', 'result', cfg['tag'])
     
-    classes = torch.arange(10, device=cfg['device']).repeat_interleave(10, 0)
+    # classes = torch.arange(10, device=cfg['device']).repeat_interleave(10, 0)
+    
+    # 256个 1 - 10 的数字
+    classes = torch.arange(256, device=cfg['device']) % 10
+    print(classes)
+    
     model = make_model(cfg['model'])
     model = load_checkpoint(model, os.path.join(cfg['checkpoint_path'], 'model'), cfg['device'])
     model.to(cfg['device'])
@@ -65,8 +70,7 @@ def make_sample(x):
     # controls the scale of the variance (0 is DDIM, and 1 is one type of DDPM)
     # 0 = no noise (DDIM)
     # 1 = full noise (DDPM)
-    t = torch.linspace(1, 0, steps + 1)[:-1]
-    sample = ddim_sample_loop_V(model, x, t, steps, eta, classes, guidance_scale)
+    sample = ddim_sample_loop_V(model, x, steps, eta, classes, guidance_scale)
     save_grid_image(sample, "output/sample.png")
     return sample
 
