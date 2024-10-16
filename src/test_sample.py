@@ -57,7 +57,6 @@ def make_sample(x):
     
     # 256个 1 - 10 的数字
     classes = torch.arange(256, device=cfg['device']) % 10
-    print(classes)
     
     model = make_model(cfg['model'])
     model = load_checkpoint(model, os.path.join(cfg['checkpoint_path'], 'model'), cfg['device'])

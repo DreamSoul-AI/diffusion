@@ -14,12 +14,17 @@ class V(nn.Module):
         self.timestep_embed = FourierFeatures(1, 16)
         self.class_embed = nn.Embedding(self.target_size + 1, 4)
         self.backbone = backbone
-
+    
     def forward(self, x_0, t, cond):
-        noised_reals, targets, classes_drop = self.forward_diffusion_sample(x_0, t, cond)
-        v = self.forward_diffusion_pass(noised_reals, t, classes_drop)
-        output_target = v
-        loss = F.mse_loss(v, targets)
+        if(self.training):
+            noised_reals, targets, classes_drop = self.forward_diffusion_sample(x_0, t, cond)
+            v = self.forward_diffusion_pass(noised_reals, t, classes_drop)
+            output_target = v
+            loss = F.mse_loss(v, targets)
+        else:
+            v = self.forward_diffusion_pass(x_0, t, cond)
+            output_target = v
+            loss = 0
         return output_target, loss
 
     def forward_diffusion_pass(self, x_0, t, cond):

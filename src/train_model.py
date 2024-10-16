@@ -130,7 +130,7 @@ def train(data_loader, model, optimizer, scaler, scheduler, logger):
 
 def test(data_loader, model, logger):
     with torch.no_grad():
-        model.train(False)
+        model.train(True)
         for i, input in enumerate(data_loader):
             input_size = input['data'].size(0)
             input = to_device(input, cfg['device'])
