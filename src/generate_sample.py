@@ -7,7 +7,7 @@ from config import cfg, process_args
 from model import make_model
 from module import process_control, makedir_exist_ok
 from module.sampler import ddim_sample_loop_V
-from torchvision.utils import make_grid, save_image
+from torchvision.utils import save_image
 
 cudnn.benchmark = True
 parser = argparse.ArgumentParser(description='cfg')
@@ -16,25 +16,6 @@ for k in cfg:
 parser.add_argument('--control_name', default=None, type=str)
 args = vars(parser.parse_args())
 process_args(args)
-
-
-def save_grid_image(tensor, path, nrow=16):
-    # Make a grid of images
-    grid = make_grid(tensor, nrow=nrow)
-    # Convert grid to numpy array
-    array = grid.cpu().numpy()
-    # If the grid has a single channel, keep it as a single channel
-    if array.shape[0] == 1:
-        array = array.squeeze(0)
-        plt.imsave(path, array, cmap='gray')
-    else:
-        # Transpose the array to (H, W, C)
-        array = array.transpose(1, 2, 0)
-        # Normalize the array to [0, 1]
-        array = (array - array.min()) / (array.max() - array.min())
-        # Save the image
-        plt.imsave(path, array)
-    return
 
 
 def load_checkpoint(model, checkpoint_path, device):
@@ -56,8 +37,8 @@ def generate_sample():
     cfg['result_path'] = os.path.join('output', 'result', cfg['tag'])
     cfg['sample_path'] = os.path.join('output', 'sample')
 
-    # classes = torch.arange(10, device=cfg['device']).repeat_interleave(10, 0)
     # 256个 1 - 10 的数字
+    # classes = torch.arange(10, device=cfg['device']).repeat_interleave(10, 0)
     noise = torch.randn(cfg['generate']['batch_size'], 1, 32, 32).to(cfg['device'])
     classes = torch.arange(cfg['generate']['batch_size'], device=cfg['device']) % 10
 
@@ -66,13 +47,13 @@ def generate_sample():
     model.to(cfg['device'])
     steps = cfg['generate']['steps']
     guidance_scale = cfg['generate']['guidance_scale']
-    eta = 1. if not cfg['generate']['use_ddim'] else 0.
     # The amount of noise to add each timestep when sampling
     # controls the scale of the variance (0 is DDIM, and 1 is one type of DDPM)
     # 0 = no noise (DDIM)
     # 1 = full noise (DDPM)
+    eta = 1. if not cfg['generate']['use_ddim'] else 0.
+
     sample = ddim_sample_loop_V(model, noise, steps, eta, classes, guidance_scale)
-    # save_grid_image(sample, "output/sample.png")
     makedir_exist_ok(os.path.join(cfg['sample_path']))
     save_image(sample, os.path.join(cfg['sample_path'], '{}.{}'.format(cfg['tag'], cfg['generate']['img_fmt'])))
     return sample
