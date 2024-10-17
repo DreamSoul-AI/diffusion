@@ -45,4 +45,11 @@ def process_control():
     cfg[tag]['optimizer']['num_steps'] = cfg['num_steps']
     cfg[tag]['optimizer']['scheduler_name'] = 'LinearAnnealingLR'
     cfg[tag]['optimizer']['warmup_ratio'] = 0
+
+    cfg['generate'] = {}
+    cfg['generate']['use_ddim'] = True
+    cfg['generate']['steps'] = 30
+    cfg['generate']['guidance_scale'] = 2.
+    cfg['generate']['batch_size'] = 16
+    cfg['generate']['img_fmt'] = 'png'
     return

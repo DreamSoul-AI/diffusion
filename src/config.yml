@@ -13,7 +13,3 @@ log_interval: 0.25
 device: cuda
 resume_mode: 0
 profile: False
-use_ddim: True
-steps: 30
-guidance_scale: 2.
-batch_size: 10
