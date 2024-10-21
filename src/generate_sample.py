@@ -37,14 +37,20 @@ def generate_sample():
     cfg['result_path'] = os.path.join('output', 'result', cfg['tag'])
     cfg['sample_path'] = os.path.join('output', 'sample')
 
-    # 256个 1 - 10 的数字
-    # classes = torch.arange(10, device=cfg['device']).repeat_interleave(10, 0)
-    noise = torch.randn(cfg['generate']['batch_size'], 1, 32, 32).to(cfg['device'])
-    classes = torch.arange(cfg['generate']['batch_size'], device=cfg['device']) % 10
-
+    # 256个 1 - 10 的数字    
+    if(cfg['data_name'] == 'MNIST'):
+        noise = torch.randn(cfg['generate']['batch_size'], 1, 32, 32).to(cfg['device'])
+        classes = torch.arange(cfg['generate']['batch_size'], device=cfg['device']) % 10
+    elif(cfg['data_name'] == 'CIFAR10'):
+        noise = torch.randn(cfg['generate']['batch_size'], 3, 32, 32).to(cfg['device'])
+        classes = torch.arange(cfg['generate']['batch_size'], device=cfg['device']) % 10
+    else:
+        raise ValueError('Not valid data name')
+    
     model = make_model(cfg['model'])
     model = load_checkpoint(model, os.path.join(cfg['checkpoint_path'], 'model'), cfg['device'])
     model.to(cfg['device'])
+    model.train(False)
     steps = cfg['generate']['steps']
     guidance_scale = cfg['generate']['guidance_scale']
     # The amount of noise to add each timestep when sampling
@@ -52,10 +58,15 @@ def generate_sample():
     # 0 = no noise (DDIM)
     # 1 = full noise (DDPM)
     eta = 1. if not cfg['generate']['use_ddim'] else 0.
-
     sample = ddim_sample_loop_V(model, noise, steps, eta, classes, guidance_scale)
     makedir_exist_ok(os.path.join(cfg['sample_path']))
     save_image(sample, os.path.join(cfg['sample_path'], '{}.{}'.format(cfg['tag'], cfg['generate']['img_fmt'])))
+    
+    from torchvision import datasets, transforms, utils
+    from torchvision.transforms import functional as TF
+    grid = utils.make_grid(sample, 10).cpu()
+    filename = os.path.join(cfg['sample_path'], '{}.{}'.format(cfg['tag'], cfg['generate']['img_fmt']).replace('.png', '_grid.png'))
+    TF.to_pil_image(grid.add(1).div(2).clamp(0, 1)).save(filename)
     return sample
 
 

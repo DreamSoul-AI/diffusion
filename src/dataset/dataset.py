@@ -26,11 +26,11 @@ def make_dataset(data_name, verbose=True):
         dataset_['train'].transform = dataset.Compose([
             transforms.Resize(32),
             transforms.ToTensor(),
-            transforms.Normalize(*data_stats[data_name])])
+            transforms.Normalize([0.5], [0.5])])
         dataset_['test'].transform = dataset.Compose([
             transforms.Resize(32),
             transforms.ToTensor(),
-            transforms.Normalize(*data_stats[data_name])])
+            transforms.Normalize([0.5], [0.5])])
     elif data_name in ['CIFAR10', 'CIFAR100']:
         dataset_['train'] = eval('dataset.{}(root=root, split="train", '
                                  'transform=dataset.Compose([transforms.ToTensor()]))'.format(data_name))
@@ -40,10 +40,10 @@ def make_dataset(data_name, verbose=True):
             transforms.RandomHorizontalFlip(),
             transforms.RandomCrop(32, padding=4, padding_mode='reflect'),
             transforms.ToTensor(),
-            transforms.Normalize(*data_stats[data_name])])
+            transforms.Normalize([0.5], [0.5])])
         dataset_['test'].transform = dataset.Compose([
             transforms.ToTensor(),
-            transforms.Normalize(*data_stats[data_name])])
+            transforms.Normalize([0.5], [0.5])])
     elif data_name in ['SVHN']:
         dataset_['train'] = eval('dataset.{}(root=root, split="train", '
                                  'transform=dataset.Compose([transforms.ToTensor()]))'.format(data_name))

@@ -6,7 +6,7 @@ def process_control():
     cfg['model_name'] = cfg['control']['model_name']
     cfg['formulation_mode'] = cfg['control']['formulation_mode']
 
-    cfg['batch_size'] = 256
+    cfg['batch_size'] = 100
     cfg['step_period'] = 1
     cfg['num_steps'] = None
     cfg['eval_period'] = 200
@@ -47,9 +47,9 @@ def process_control():
     cfg[tag]['optimizer']['warmup_ratio'] = 0
 
     cfg['generate'] = {}
-    cfg['generate']['use_ddim'] = True
-    cfg['generate']['steps'] = 30
+    cfg['generate']['use_ddim'] = False
+    cfg['generate']['steps'] = 500
     cfg['generate']['guidance_scale'] = 2.
-    cfg['generate']['batch_size'] = 16
+    cfg['generate']['batch_size'] = 100
     cfg['generate']['img_fmt'] = 'png'
     return
