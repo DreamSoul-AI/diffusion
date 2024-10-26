@@ -17,7 +17,7 @@ def process_control():
     cfg['model'] = {}
     cfg['model']['model_name'] = cfg['model_name']
     cfg['model']['formulation_mode'] = cfg['formulation_mode']
-    data_shape = {'MNIST': [1, 28, 28], 'FashionMNIST': [1, 28, 28], 'SVHN': [3, 32, 32], 'CIFAR10': [3, 32, 32],
+    data_shape = {'MNIST': [1, 32, 32], 'FashionMNIST': [1, 32, 32], 'SVHN': [3, 32, 32], 'CIFAR10': [3, 32, 32],
                   'CIFAR100': [3, 32, 32]}
     target_size = {'MNIST': 10, 'FashionMNIST': 10, 'SVHN': 10, 'CIFAR10': 10, 'CIFAR100': 100}
     cfg['model']['data_shape'] = data_shape[cfg['data_name']]
@@ -48,8 +48,8 @@ def process_control():
 
     cfg['generate'] = {}
     cfg['generate']['use_ddim'] = False
-    cfg['generate']['steps'] = 500
+    cfg['generate']['num_steps'] = 100
     cfg['generate']['guidance_scale'] = 2.
-    cfg['generate']['batch_size'] = 100
+    cfg['generate']['batch_size'] = 5
     cfg['generate']['img_fmt'] = 'png'
     return

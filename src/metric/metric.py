@@ -9,9 +9,9 @@ def make_metric(split, **kwargs):
     run_mode = kwargs['run_mode']
     metric_name = {k: [] for k in split}
     if data_name in ['MNIST', 'FashionMNIST', 'SVHN', 'CIFAR10', 'CIFAR100']:
-        best = -float('inf')
-        best_direction = 'up'
-        best_metric_name = 'Accuracy'
+        best = float('inf')
+        best_direction = 'down'
+        best_metric_name = 'Loss'
         for k in metric_name:
             metric_name[k].extend(['Loss'])
             if run_mode == 'train' and k == 'test':

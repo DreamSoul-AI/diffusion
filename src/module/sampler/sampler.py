@@ -1,23 +1,23 @@
 import torch
 from torch.nn import functional as F
-from tqdm.notebook import tqdm, trange
+from tqdm import tqdm
 from model import get_alphas_sigmas, get_index_from_list
 from config import cfg
 
 
 @torch.no_grad()
-def ddim_sample_loop_V(model, x, steps, eta, classes, guidance_scale=1.):
+def ddim_sample_loop_V(model, x, num_steps, eta, classes, guidance_scale=1.):
     """Draws samples from a model given starting noise."""
     ts = x.new_ones([x.shape[0]])
 
-    t = torch.linspace(1, 0, steps + 1)[:-1].to(cfg['device'])
+    t = torch.linspace(1, 0, num_steps + 1)[:-1].to(cfg['device'])
     alphas, sigmas = get_alphas_sigmas(t)
 
     input = {}
-
+    pred = None
     # The sampling loop
-    for i in trange(steps):
-        with torch.cuda.amp.autocast():
+    for i in tqdm(range(num_steps)):
+        with torch.amp.autocast(cfg['device']):
             x_in = torch.cat([x, x])
             ts_in = torch.cat([ts, ts])
             classes_in = torch.cat([-torch.ones_like(classes), classes])
@@ -33,7 +33,7 @@ def ddim_sample_loop_V(model, x, steps, eta, classes, guidance_scale=1.):
 
         # If we are not on the last timestep, compute the noisy image for the
         # next timestep.
-        if i < steps - 1:
+        if i < num_steps - 1:
             # If eta > 0, adjust the scaling factor for the predicted noise
             # downward according to the amount of additional noise to add
             ddim_sigma = eta * (sigmas[i + 1] ** 2 / sigmas[i] ** 2).sqrt() * \
