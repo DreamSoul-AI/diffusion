@@ -24,6 +24,12 @@ class Diffusion(nn.Module):
         return output
 
 
+def extract(a, t, x_shape):
+    # retreive the data from the buffer according to the timestep and reshape to the shape wanted
+    b, *_ = t.shape
+    out = a.gather(-1, t)
+    return out.reshape(b, *((1,) * (len(x_shape) - 1)))
+
 def get_index_from_list(vals, t, x_shape):
     """
     Returns a specific index t of a passed list of values vals
