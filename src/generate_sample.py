@@ -67,7 +67,12 @@ def generate(model):
     # 0 = no noise (DDIM)
     # 1 = full noise (DDPM)
     eta = 1. if not cfg['generate']['use_ddim'] else 0.
-    sample = ddim_sample_loop_V(model, noise, num_steps, eta, classes, guidance_scale)
+    if cfg['model']['formulation_mode'] == "v":
+        sample = ddim_sample_loop_V(model, noise, num_steps, eta, classes, guidance_scale)
+    elif cfg['model']['formulation_mode'] == "epsilon":
+        sample = ddim_sample_loop_Epsilon(model, noise, steps, eta, classes, guidance_scale)
+    else:
+        raise ValueError('Not valid formulation mode name')
 
     makedir_exist_ok(os.path.join(cfg['sample_path']))
     save_image(sample, os.path.join(cfg['sample_path'], '{}.{}'.format(cfg['tag'], cfg['generate']['img_fmt'])),
