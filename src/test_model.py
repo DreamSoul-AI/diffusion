@@ -6,7 +6,7 @@ from config import cfg, process_args
 from dataset import make_dataset, make_data_loader, process_dataset
 from metric import make_logger
 from model import make_model
-from module import save, resume, to_device, process_control
+from module import save, resume, to_device, process_control, ddim_sample_loop_V
 
 cudnn.benchmark = True
 parser = argparse.ArgumentParser(description='cfg')
@@ -40,12 +40,12 @@ def runExperiment():
     cfg['logger_path'] = os.path.join('output', 'logger', 'test', 'runs', cfg['tag'])
     cfg['result_path'] = os.path.join('output', 'result', cfg['tag'])
     dataset = make_dataset(cfg['data_name'])
+    dataset = process_dataset(dataset)
     model = make_model(cfg['model'])
     result = resume(cfg['best_path'])
     cfg['step'] = result['cfg']['step']
     model = model.to(cfg['device'])
     model.load_state_dict(result['model'])
-    dataset = process_dataset(dataset)
     data_loader = make_data_loader(dataset, cfg[cfg['tag']]['optimizer']['batch_size'])
     test_logger = make_logger(cfg['logger_path'], data_name=cfg['data_name'], run_mode=cfg['run_mode'])
     test(data_loader['test'], model, test_logger)
@@ -57,15 +57,33 @@ def runExperiment():
 
 
 def test(data_loader, model, logger):
+    def norm_ip(img, low, high):
+        img.clamp_(min=low, max=high)
+        img.sub_(low).div_(max(high - low, 1e-5))
+        return img
+
+    num_steps = cfg['generate']['num_steps']
+    guidance_scale = 2.
+    eta = 1. if not cfg['generate']['use_ddim'] else 0.
+
     with torch.no_grad():
         model.train(False)
         for i, input in enumerate(data_loader):
             input_size = input['data'].size(0)
             input = to_device(input, cfg['device'])
-            output = model(input)
+            noise = torch.randn(input['data'].size()).to(cfg['device'])
+            if guidance_scale > 1:
+                classes = input['target']
+            else:
+                classes = -torch.ones((input_size, ), dtype=torch.long).to(cfg['device'])
+            output = ddim_sample_loop_V(model, noise, num_steps, eta, classes, guidance_scale)
+            input = {'data': norm_ip(input['data'], -1, 1)}
+            output = {'data': norm_ip(output, -1, 1)}
+            # output = {'data': output}
             evaluation = logger.evaluate('test', 'batch', input, output)
             logger.append(evaluation, 'test', input_size)
             logger.add('test', input, output)
+            # break
         evaluation = logger.evaluate('test', 'full')
         logger.append(evaluation, 'test', input_size)
         info = {'info': ['Model: {}'.format(cfg['tag']),

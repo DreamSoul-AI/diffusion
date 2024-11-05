@@ -81,7 +81,7 @@ def expand_to_planes(input, shape, repeat_batch=False):
     if repeat_batch and input.shape[0] == 1:
         # Expand the batch dimension without extra repetitions
         input = input.expand(shape[0], -1)
-    
+
     # Add spatial dimensions and repeat as necessary to match `shape`
     if input.dim() == 2:  # Assuming input is [batch_size, channels]
         input = input[:, :, None, None]  # Add spatial dimensions: [batch_size, channels, 1, 1]

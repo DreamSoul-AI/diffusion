@@ -2,11 +2,13 @@ import torch
 from torch.nn import functional as F
 import math
 from tqdm.notebook import trange
+from tqdm import tqdm
 from model import get_alphas_sigmas, get_index_from_list
 from config import cfg
 
 # Global buffers
 buffers = {}
+
 
 # Function to initialize global buffers
 def initialize_global_buffers(num_timesteps=100):
@@ -33,38 +35,44 @@ def initialize_global_buffers(num_timesteps=100):
         "posterior_mean_coef2": (1.0 - alphas_cumprod_prev) * torch.sqrt(alphas_cumprod) / (1.0 - alphas_cumprod),
     }
 
+
 initialize_global_buffers(num_timesteps=100)
+
 
 def extract(a, t, x_shape):
     # retreive the data from the buffer according to the timestep and reshape to the shape wanted
     b, *_ = t.shape
     out = a.gather(-1, t)
     return out.reshape(b, *((1,) * (len(x_shape) - 1)))
-    
+
+
 def map_timestep_for_batch(t_i, num_timesteps, batch_size):
     # Map t_i (continuous) to a discrete timestep index
     discrete_index = torch.round(t_i * (num_timesteps - 1)).long()
-    
+
     # Expand to match the batch size
     discrete_index_batch = torch.full((batch_size,), discrete_index, dtype=torch.long, device=t_i.device)
     return discrete_index_batch
 
+
 # Function to compute q_posterior
 def q_posterior(x_start, x, t, buffers):
     posterior_mean = (
-        extract(buffers["posterior_mean_coef1"], t, x.shape) * x_start
-        + extract(buffers["posterior_mean_coef2"], t, x.shape) * x
+            extract(buffers["posterior_mean_coef1"], t, x.shape) * x_start
+            + extract(buffers["posterior_mean_coef2"], t, x.shape) * x
     )
     posterior_variance = extract(buffers["posterior_variance"], t, x.shape)
     posterior_log_variance = extract(buffers["posterior_log_variance_clipped"], t, x.shape)
     return posterior_mean, posterior_variance, posterior_log_variance
 
+
 # Function to predict x_0 from noise
 def predict_start_from_noise(x, t, pred_noise, buffers):
     return (
-        extract(buffers["sqrt_recip_alphas_cumprod"], t, x.shape) * x
-        - extract(buffers["sqrt_recipm_alphas_cumprod"], t, x.shape) * pred_noise
+            extract(buffers["sqrt_recip_alphas_cumprod"], t, x.shape) * x
+            - extract(buffers["sqrt_recipm_alphas_cumprod"], t, x.shape) * pred_noise
     )
+
 
 # Function to compute p_mean_variance
 def p_mean_variance(x, t, cond, core_model, buffers, guidance_scale):
@@ -91,13 +99,14 @@ def p_mean_variance(x, t, cond, core_model, buffers, guidance_scale):
     model_mean, posterior_variance, posterior_log_variance = q_posterior(x_recon, x, t, buffers)
     return model_mean, posterior_log_variance
 
+
 # Function to perform a single sampling step
 def p_sample(x, t, cond, core_model, buffers, eta=1.0, guidance_scale=1.0):
     model_mean, model_log_variance = p_mean_variance(x, t, cond, core_model, buffers, guidance_scale)
-    
+
     # Sample noise
     noise = torch.randn_like(x)
-    
+
     # Add noise if eta > 0, otherwise it's deterministic (eta=0 for deterministic DDIM)
     if eta > 0:
         x = model_mean + (0.5 * model_log_variance).exp() * noise
@@ -105,6 +114,7 @@ def p_sample(x, t, cond, core_model, buffers, eta=1.0, guidance_scale=1.0):
         x = model_mean
 
     return x
+
 
 # DDIM Sampling Function for Epsilon model
 @torch.no_grad()
@@ -121,12 +131,12 @@ def ddim_sample_loop_Epsilon(model, x, steps, eta, classes, guidance_scale=1.0):
     # Generate timesteps for sampling loop (discrete mapping)
     t = torch.linspace(1, 0, steps, device=device)
 
-    #for i in reversed(range(len(buffers["betas"]))):
+    # for i in reversed(range(len(buffers["betas"]))):
     for i in trange(steps):
         t_i = t[i]
         discrete_t_i = map_timestep_for_batch(t_i, len(buffers["betas"]), batch_size)
         x = p_sample(x, discrete_t_i, classes, model, buffers, eta, guidance_scale)
-    
+
     return x
 
 
@@ -142,7 +152,8 @@ def ddim_sample_loop_V(model, x, num_steps, eta, classes, guidance_scale=1.):
     pred = None
     # The sampling loop
     for i in tqdm(range(num_steps)):
-        with torch.amp.autocast(cfg['device']):
+        if guidance_scale > 1:
+            # with torch.amp.autocast(cfg['device']):
             x_in = torch.cat([x, x])
             ts_in = torch.cat([ts, ts])
             classes_in = torch.cat([-torch.ones_like(classes), classes])
@@ -150,7 +161,12 @@ def ddim_sample_loop_V(model, x, num_steps, eta, classes, guidance_scale=1.):
             input['target'] = classes_in
             input['t'] = ts_in * t[i]
             v_uncond, v_cond = model(input)['data'].float().chunk(2)
-        v = v_uncond + guidance_scale * (v_cond - v_uncond)
+            v = v_uncond + guidance_scale * (v_cond - v_uncond)
+        else:
+            input['data'] = x
+            input['target'] = -torch.ones_like(classes)
+            input['t'] = ts * t[i]
+            v = model(input)['data'].float()
 
         # Predict the noise and the denoised image
         pred = x * alphas[i] - v * sigmas[i]

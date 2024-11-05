@@ -30,6 +30,7 @@ def extract(a, t, x_shape):
     out = a.gather(-1, t)
     return out.reshape(b, *((1,) * (len(x_shape) - 1)))
 
+
 def get_index_from_list(vals, t, x_shape):
     """
     Returns a specific index t of a passed list of values vals

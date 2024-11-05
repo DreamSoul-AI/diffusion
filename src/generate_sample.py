@@ -5,7 +5,7 @@ import torch.backends.cudnn as cudnn
 from config import cfg, process_args
 from model import make_model
 from dataset import make_dataset, process_dataset
-from module import resume, process_control, makedir_exist_ok, ddim_sample_loop_V
+from module import resume, process_control, makedir_exist_ok, ddim_sample_loop_V, ddim_sample_loop_Epsilon
 from torchvision.utils import save_image
 
 cudnn.benchmark = True
@@ -70,7 +70,7 @@ def generate(model):
     if cfg['model']['formulation_mode'] == "v":
         sample = ddim_sample_loop_V(model, noise, num_steps, eta, classes, guidance_scale)
     elif cfg['model']['formulation_mode'] == "epsilon":
-        sample = ddim_sample_loop_Epsilon(model, noise, steps, eta, classes, guidance_scale)
+        sample = ddim_sample_loop_Epsilon(model, noise, num_steps, eta, classes, guidance_scale)
     else:
         raise ValueError('Not valid formulation mode name')
 

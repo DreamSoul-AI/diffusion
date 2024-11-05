@@ -13,10 +13,9 @@ def make_metric(split, **kwargs):
         best_direction = 'down'
         best_metric_name = 'Loss'
         for k in metric_name:
-            metric_name[k].extend(['Loss'])
-            if run_mode == 'train' and k == 'test':
-                pass
-            elif run_mode == 'test' and k == 'test':
+            if run_mode == 'train':
+                metric_name[k].extend(['Loss'])
+            else:
                 metric_name[k].extend(['FID'])
     else:
         raise ValueError('Not valid data name')
