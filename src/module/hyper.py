@@ -17,11 +17,6 @@ def process_control():
     cfg['model'] = {}
     cfg['model']['model_name'] = cfg['model_name']
     cfg['model']['formulation_mode'] = cfg['formulation_mode']
-    # data_shape = {'MNIST': [1, 32, 32], 'FashionMNIST': [1, 32, 32], 'SVHN': [3, 32, 32], 'CIFAR10': [3, 32, 32],
-    #               'CIFAR100': [3, 32, 32]}
-    # target_size = {'MNIST': 10, 'FashionMNIST': 10, 'SVHN': 10, 'CIFAR10': 10, 'CIFAR100': 100}
-    # cfg['model']['data_shape'] = data_shape[cfg['data_name']]
-    # cfg['model']['target_size'] = target_size[cfg['data_name']]
     cfg['model']['linear'] = {}
     cfg['model']['mlp'] = {'hidden_size': 128, 'scale_factor': 2, 'num_layers': 2, 'activation': 'relu'}
     cfg['model']['cnn'] = {'hidden_size': [64, 128, 256, 512]}
@@ -29,7 +24,7 @@ def process_control():
     cfg['model']['resnet18'] = {'hidden_size': [64, 128, 256, 512]}
     cfg['model']['wresnet28x2'] = {'depth': 28, 'widen_factor': 2, 'drop_rate': 0.0}
     cfg['model']['wresnet28x8'] = {'depth': 28, 'widen_factor': 8, 'drop_rate': 0.0}
-    cfg['model']['diffusion'] = {'hidden_size': 64}
+    cfg['model']['diffusion'] = {'hidden_size': 64, 'class_dropout': 0.2}
 
     tag = cfg['tag']
     cfg[tag] = {}
@@ -46,10 +41,14 @@ def process_control():
     cfg[tag]['optimizer']['scheduler_name'] = 'LinearAnnealingLR'
     cfg[tag]['optimizer']['warmup_ratio'] = 0
 
-    cfg['generate'] = {}
-    cfg['generate']['use_ddim'] = False
-    cfg['generate']['num_steps'] = 100
-    cfg['generate']['guidance_scale'] = 2.
+    # Overwrite if needed
+    # cfg['generate']['num_steps'] = 100
+    # cfg['generate']['guidance_scale'] = 2.
+    # The amount of noise to add each timestep when sampling
+    # controls the scale of the variance (0 is DDIM, and 1 is one type of DDPM)
+    # 0 = no noise (DDIM)
+    # 1 = full noise (DDPM)
+    # cfg['generate']['eta'] = 0.
     cfg['generate']['batch_size'] = 5
     cfg['generate']['img_fmt'] = 'png'
     return

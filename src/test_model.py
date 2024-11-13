@@ -79,11 +79,9 @@ def test(data_loader, model, logger):
             output = ddim_sample_loop_V(model, noise, num_steps, eta, classes, guidance_scale)
             input = {'data': norm_ip(input['data'], -1, 1)}
             output = {'data': norm_ip(output, -1, 1)}
-            # output = {'data': output}
             evaluation = logger.evaluate('test', 'batch', input, output)
             logger.append(evaluation, 'test', input_size)
             logger.add('test', input, output)
-            # break
         evaluation = logger.evaluate('test', 'full')
         logger.append(evaluation, 'test', input_size)
         info = {'info': ['Model: {}'.format(cfg['tag']),

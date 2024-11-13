@@ -6,11 +6,12 @@ from ..backbone import expand_to_planes, FourierFeatures
 
 
 class V(nn.Module):
-    def __init__(self, backbone, data_shape, hidden_size, target_size):
+    def __init__(self, backbone, data_shape, hidden_size, target_size, class_dropout):
         super().__init__()
         self.data_shape = data_shape
         self.hidden_size = hidden_size
         self.target_size = target_size
+        self.class_dropout = class_dropout
         self.timestep_embed = FourierFeatures(1, 16)
         self.class_embed = nn.Embedding(self.target_size + 1, 4)
         self.backbone = backbone
@@ -45,7 +46,7 @@ class V(nn.Module):
         targets = noise * alphas - x_0 * sigmas
 
         # Drop out the class on 20% of the examples
-        to_drop = torch.rand(classes.shape, device=classes.device).le(0.2)
+        to_drop = torch.rand(classes.shape, device=classes.device).le(self.class_dropout)
         classes_drop = torch.where(to_drop, -torch.ones_like(classes), classes)
         return noised_reals, targets, classes_drop
 
@@ -54,5 +55,6 @@ def v(backbone, cfg):
     data_shape = cfg['data_shape']
     hidden_size = cfg['diffusion']['hidden_size']
     target_size = cfg['target_size']
-    model = V(backbone, data_shape, hidden_size, target_size)
+    class_dropout = cfg['diffusion']['class_dropout']
+    model = V(backbone, data_shape, hidden_size, target_size, class_dropout)
     return model

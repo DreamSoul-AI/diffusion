@@ -4,6 +4,11 @@ control:
   data_name: MNIST
   model_name: base
   formulation_mode: v
+# generate
+generate:
+  num_steps: 100
+  guidance_scale: 1.
+  eta: 0.
 # experiment
 pin_memory: True
 num_workers: 2
