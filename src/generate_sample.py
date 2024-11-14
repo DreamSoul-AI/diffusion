@@ -52,6 +52,7 @@ def runExperiment():
 
 
 def generate(model):
+    sampler = Sampler(cfg['generate']['num_steps'], cfg['generate']['guidance_scale'], cfg['generate']['eta'])
     if cfg['data_name'] in ['MNIST', 'CIFAR10']:
         size = (cfg['generate']['batch_size'] * cfg['model']['target_size'], *cfg['model']['data_shape'])
         noise = torch.randn(size).to(cfg['device'])
@@ -59,13 +60,11 @@ def generate(model):
             cfg['generate']['batch_size'])
     else:
         raise ValueError('Not valid data name')
-
-    sampler = Sampler(cfg['generate']['num_steps'], cfg['generate']['guidance_scale'], cfg['generate']['eta'])
     samples = sampler.sample(noise, model, classes)
 
     makedir_exist_ok(os.path.join(cfg['sample_path']))
-    save_image(samples, os.path.join(cfg['sample_path'], '{}.{}'.format(cfg['tag'], cfg['generate']['img_fmt'])),
-               normalize=True, value_range=(-1, 1), nrow=cfg['model']['target_size'])
+    save_image(samples, os.path.join(cfg['sample_path'], 'sample.{}'.format(cfg['generate']['img_fmt'])),
+               nrow=cfg['model']['target_size'])
     return samples
 
 

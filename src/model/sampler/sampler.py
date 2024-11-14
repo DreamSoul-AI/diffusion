@@ -4,16 +4,19 @@ from model import get_alphas_sigmas, V
 
 
 class Sampler:
-    def __init__(self, num_steps=100, guidance_scale=1.0, eta=0.0):
+    def __init__(self, num_steps=100, guidance_scale=1.0, eta=0.0, normalize=True):
         self.num_steps = num_steps
         self.guidance_scale = guidance_scale
         self.eta = eta
+        self.normalize = normalize
 
     def sample(self, noise, model, classes=None):
         if isinstance(model.core, V):
             samples = self.sample_v(noise, model, classes)
         else:
             raise NotImplementedError
+        if self.normalize:
+            samples = self.apply_normalize(samples, -1, 1)
         return samples
 
     @torch.no_grad()
@@ -67,3 +70,8 @@ class Sampler:
                     x += torch.randn_like(x) * ddim_sigma
         # If we are on the last timestep, output the denoised image
         return pred
+
+    def apply_normalize(self, data, low, high):
+        data.clamp_(min=low, max=high)
+        data.sub_(low).div_(max(high - low, 1e-5))
+        return data

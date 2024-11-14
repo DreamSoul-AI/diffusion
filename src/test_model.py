@@ -5,7 +5,7 @@ import torch.backends.cudnn as cudnn
 from config import cfg, process_args
 from dataset import make_dataset, make_data_loader, process_dataset
 from metric import make_logger
-from model import make_model
+from model import make_model, Sampler
 from module import save, resume, to_device, process_control, ddim_sample_loop_V
 
 cudnn.benchmark = True
@@ -57,28 +57,20 @@ def runExperiment():
 
 
 def test(data_loader, model, logger):
-    def norm_ip(img, low, high):
-        img.clamp_(min=low, max=high)
-        img.sub_(low).div_(max(high - low, 1e-5))
-        return img
-
-    num_steps = cfg['generate']['num_steps']
-    guidance_scale = 2.
-    eta = 1. if not cfg['generate']['use_ddim'] else 0.
-
     with torch.no_grad():
+        sampler = Sampler(cfg['generate']['num_steps'], cfg['generate']['guidance_scale'], cfg['generate']['eta'])
         model.train(False)
         for i, input in enumerate(data_loader):
             input_size = input['data'].size(0)
             input = to_device(input, cfg['device'])
             noise = torch.randn(input['data'].size()).to(cfg['device'])
-            if guidance_scale > 1:
+            if sampler.guidance_scale > 1:
                 classes = input['target']
             else:
-                classes = -torch.ones((input_size, ), dtype=torch.long).to(cfg['device'])
-            output = ddim_sample_loop_V(model, noise, num_steps, eta, classes, guidance_scale)
-            input = {'data': norm_ip(input['data'], -1, 1)}
-            output = {'data': norm_ip(output, -1, 1)}
+                classes = -input['data'].new_ones((input_size,), dtype=torch.long)
+            samples = sampler.sample(noise, model, classes)
+            input = {'data': sampler.apply_normalize(input['data'], -1, 1)}
+            output = {'data': samples}
             evaluation = logger.evaluate('test', 'batch', input, output)
             logger.append(evaluation, 'test', input_size)
             logger.add('test', input, output)
