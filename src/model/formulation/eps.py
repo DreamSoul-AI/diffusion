@@ -5,12 +5,13 @@ from .diffusion import get_alphas_sigmas
 from ..backbone import expand_to_planes, FourierFeatures
 
 
-class Epsilon(nn.Module):
-    def __init__(self, backbone, data_shape, hidden_size, target_size):
+class Eps(nn.Module):
+    def __init__(self, backbone, data_shape, hidden_size, target_size, class_dropout):
         super().__init__()
         self.data_shape = data_shape
         self.hidden_size = hidden_size
         self.target_size = target_size
+        self.class_dropout = class_dropout
         self.timestep_embed = FourierFeatures(1, 16)
         self.class_embed = nn.Embedding(self.target_size + 1, 4)
         self.backbone = backbone
@@ -20,11 +21,11 @@ class Epsilon(nn.Module):
             noised_reals, targets, classes_drop = self.forward_diffusion_sample(x_0, t, cond)
             predicted_noise = self.forward_diffusion_pass(noised_reals, t, classes_drop)
             output_target = predicted_noise
-            loss = F.mse_loss(predicted_noise, targets)
+            loss = F.mse_loss(output_target, targets)
         else:
             predicted_noise = self.forward_diffusion_pass(x_0, t, cond)
             output_target = predicted_noise
-            loss = None  # No loss calculated in inference mode
+            loss = 0
         return output_target, loss
 
     def forward_diffusion_pass(self, x_0, t, cond):
@@ -44,15 +45,16 @@ class Epsilon(nn.Module):
         noised_reals = x_0 * alphas + noise * sigmas
         targets = noise
 
-        # Drop out the class on 20% of the examples
-        to_drop = torch.rand(classes.shape, device=classes.device).le(0.2)
+        # Drop out the class of the examples
+        to_drop = torch.rand(classes.shape, device=classes.device).le(self.class_dropout)
         classes_drop = torch.where(to_drop, -torch.ones_like(classes), classes)
         return noised_reals, targets, classes_drop
 
 
-def epsilon(backbone, cfg):
+def eps(backbone, cfg):
     data_shape = cfg['data_shape']
     hidden_size = cfg['diffusion']['hidden_size']
     target_size = cfg['target_size']
-    model = Epsilon(backbone, data_shape, hidden_size, target_size)
+    class_dropout = cfg['diffusion']['class_dropout']
+    model = Eps(backbone, data_shape, hidden_size, target_size, class_dropout)
     return model

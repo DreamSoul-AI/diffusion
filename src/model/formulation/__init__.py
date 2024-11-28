@@ -1,4 +1,4 @@
 from .diffusion import *
 from .v import *
-from .xzero import *
-from .epsilon import *
+from .x import *
+from .eps import *

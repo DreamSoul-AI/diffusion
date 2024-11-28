@@ -19,12 +19,12 @@ class V(nn.Module):
     def forward(self, x_0, t, cond, training=True):
         if training:
             noised_reals, targets, classes_drop = self.forward_diffusion_sample(x_0, t, cond)
-            v = self.forward_diffusion_pass(noised_reals, t, classes_drop)
-            output_target = v
-            loss = F.mse_loss(v, targets)
+            predicted_v = self.forward_diffusion_pass(noised_reals, t, classes_drop)
+            output_target = predicted_v
+            loss = F.mse_loss(output_target, targets)
         else:
-            v = self.forward_diffusion_pass(x_0, t, cond)
-            output_target = v
+            predicted_v = self.forward_diffusion_pass(x_0, t, cond)
+            output_target = predicted_v
             loss = 0
         return output_target, loss
 
@@ -45,7 +45,7 @@ class V(nn.Module):
         noised_reals = x_0 * alphas + noise * sigmas
         targets = noise * alphas - x_0 * sigmas
 
-        # Drop out the class on 20% of the examples
+        # Drop out the class of the examples
         to_drop = torch.rand(classes.shape, device=classes.device).le(self.class_dropout)
         classes_drop = torch.where(to_drop, -torch.ones_like(classes), classes)
         return noised_reals, targets, classes_drop

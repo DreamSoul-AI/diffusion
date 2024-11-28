@@ -5,6 +5,7 @@ from tqdm.notebook import trange
 from model import get_alphas_sigmas
 from config import cfg
 
+
 @torch.no_grad()
 def ddim_sample_loop_Xzero(model, x, steps, eta, classes, guidance_scale=1.):
     """Draws samples from a model given starting noise for the X_zero objective."""
@@ -25,10 +26,10 @@ def ddim_sample_loop_Xzero(model, x, steps, eta, classes, guidance_scale=1.):
             input['data'] = x_in
             input['target'] = classes_in
             input['t'] = ts_in * t[i]
-            
+
             # Model directly outputs the predicted x_0
             x0_uncond, x0_cond = model(input)['data'].float().chunk(2)
-        
+
         # Apply classifier-free guidance on x_0 prediction
         pred_x0 = x0_uncond + guidance_scale * (x0_cond - x0_uncond)
 
@@ -47,6 +48,7 @@ def ddim_sample_loop_Xzero(model, x, steps, eta, classes, guidance_scale=1.):
 
     # If on the last timestep, return the denoised image
     return pred_x0
+
 
 @torch.no_grad()
 def ddim_sample_loop_Epsilon(model, x, steps, eta, classes, guidance_scale=1.):
@@ -68,10 +70,10 @@ def ddim_sample_loop_Epsilon(model, x, steps, eta, classes, guidance_scale=1.):
             input['data'] = x_in
             input['target'] = classes_in
             input['t'] = ts_in * t[i]
-            
+
             # Model outputs the predicted noise for each input
             eps_uncond, eps_cond = model(input)['data'].float().chunk(2)
-        
+
         # Apply classifier-free guidance on noise prediction
         eps = eps_uncond + guidance_scale * (eps_cond - eps_uncond)
 
@@ -93,6 +95,7 @@ def ddim_sample_loop_Epsilon(model, x, steps, eta, classes, guidance_scale=1.):
 
     # If on the last timestep, return the denoised image
     return pred_x0
+
 
 @torch.no_grad()
 def ddim_sample_loop_V(model, x, steps, eta, classes, guidance_scale=1.):

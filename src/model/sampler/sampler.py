@@ -1,6 +1,6 @@
 import torch
 from tqdm import tqdm
-from model import get_alphas_sigmas, V
+from model import get_alphas_sigmas, X, Eps, V
 
 
 class Sampler:
@@ -11,7 +11,11 @@ class Sampler:
         self.normalize = normalize
 
     def sample(self, noise, model, classes=None):
-        if isinstance(model.core, V):
+        if isinstance(model.core, X):
+            samples = self.sample_x(noise, model, classes)
+        elif isinstance(model.core, Eps):
+            samples = self.sample_eps(noise, model, classes)
+        elif isinstance(model.core, V):
             samples = self.sample_v(noise, model, classes)
         else:
             raise NotImplementedError
@@ -20,37 +24,130 @@ class Sampler:
         return samples
 
     @torch.no_grad()
-    def sample_v(self, x, model, classes=None):
-        """Draws samples from a model given starting noise."""
+    def sample_x(self, z, model, classes=None):
+        """Draws samples from a model given starting noise for the X_zero objective."""
         model.train(False)
-        ts = x.new_ones([x.shape[0]])
+        ts = z.new_ones([z.shape[0]])
 
-        t = torch.linspace(1, 0, self.num_steps + 1)[:-1].to(x.device)
+        # Define timesteps and compute alphas and sigmas based on the schedule
+        t = torch.linspace(1, 0, self.num_steps + 1)[:-1].to(z.device)
         alphas, sigmas = get_alphas_sigmas(t)
 
         input = {}
-        pred = None
+        x = None
         # The sampling loop
         for i in tqdm(range(self.num_steps)):
             if self.guidance_scale > 1 and classes is not None:
-                # with torch.amp.autocast(cfg['device']):
-                x_in = torch.cat([x, x])
+                x_in = torch.cat([z, z])  # Duplicate input for unconditional and conditional
+                ts_in = torch.cat([ts, ts])
+                classes_in = torch.cat([-torch.ones_like(classes), classes])  # Classifier-free guidance
+                input['data'] = x_in
+                input['target'] = classes_in
+                input['t'] = ts_in * t[i]
+                x_uncond, x_cond = model(input)['data'].float().chunk(2)
+                x = x_uncond + self.guidance_scale * (x_cond - x_uncond)
+            else:
+                input['data'] = z
+                input['target'] = -z.new_ones((z.size(0),), dtype=torch.long)
+                input['t'] = ts * t[i]
+                x = model(input)['data'].float()
+
+            x = x
+            eps = (x - x * alphas[i]) / sigmas[i]
+
+            # If not on the last timestep, calculate the noisy image for the next timestep
+            if i < self.num_steps - 1:
+                ddim_sigma = self.eta * (sigmas[i + 1] ** 2 / sigmas[i] ** 2).sqrt() * \
+                             (1 - alphas[i] ** 2 / alphas[i + 1] ** 2).sqrt()
+                adjusted_sigma = (sigmas[i + 1] ** 2 - ddim_sigma ** 2).sqrt()
+
+                # Recombine the predicted x_0 and the noise for the next step
+                z = x * alphas[i + 1] + eps * adjusted_sigma
+
+                # Add noise if eta > 0
+                if self.eta:
+                    z += torch.randn_like(z) * ddim_sigma
+
+        # If on the last timestep, return the denoised image
+        return x
+
+    @torch.no_grad()
+    def sample_eps(self, z, model, classes=None):
+        """Draws samples from a model given starting noise for the Epsilon objective."""
+        model.train(False)
+        ts = z.new_ones([z.shape[0]])
+
+        # Define timesteps and compute alphas and sigmas based on the schedule
+        t = torch.linspace(1, 0, self.num_steps + 1)[:-1].to(z.device)
+        alphas, sigmas = get_alphas_sigmas(t)
+
+        input = {}
+        x = None
+        # The sampling loop
+        for i in tqdm(range(self.num_steps)):
+            if self.guidance_scale > 1 and classes is not None:
+                x_in = torch.cat([z, z])  # Duplicate input for unconditional and conditional
+                ts_in = torch.cat([ts, ts])
+                classes_in = torch.cat([-torch.ones_like(classes), classes])  # Classifier-free guidance
+                input['data'] = x_in
+                input['target'] = classes_in
+                input['t'] = ts_in * t[i]
+                eps_uncond, eps_cond = model(input)['data'].float().chunk(2)
+                eps = eps_uncond + self.guidance_scale * (eps_cond - eps_uncond)
+            else:
+                input['data'] = z
+                input['target'] = -z.new_ones((z.size(0),), dtype=torch.long)
+                input['t'] = ts * t[i]
+                eps = model(input)['data'].float()
+
+            x = (z - eps * sigmas[i]) / alphas[i]
+            eps = eps
+
+            # If not on the last timestep, calculate the noisy image for the next timestep
+            if i < self.num_steps - 1:
+                ddim_sigma = self.eta * (sigmas[i + 1] ** 2 / sigmas[i] ** 2).sqrt() * \
+                             (1 - alphas[i] ** 2 / alphas[i + 1] ** 2).sqrt()
+                adjusted_sigma = (sigmas[i + 1] ** 2 - ddim_sigma ** 2).sqrt()
+
+                # Recombine the denoised image and the noise for the next step
+                z = x * alphas[i + 1] + eps * adjusted_sigma
+
+                # Add noise if eta > 0
+                if self.eta:
+                    z += torch.randn_like(z) * ddim_sigma
+        # If we are on the last timestep, output the denoised image
+        return x
+
+    @torch.no_grad()
+    def sample_v(self, z, model, classes=None):
+        """Draws samples from a model given starting noise."""
+        model.train(False)
+        ts = z.new_ones([z.shape[0]])
+
+        t = torch.linspace(1, 0, self.num_steps + 1)[:-1].to(z.device)
+        alphas, sigmas = get_alphas_sigmas(t)
+
+        input = {}
+        x = None
+        # The sampling loop
+        for i in tqdm(range(self.num_steps)):
+            if self.guidance_scale > 1 and classes is not None:
+                z_in = torch.cat([z, z])  # Duplicate input for unconditional and conditional
                 ts_in = torch.cat([ts, ts])
                 classes_in = torch.cat([-torch.ones_like(classes), classes])
-                input['data'] = x_in
+                input['data'] = z_in
                 input['target'] = classes_in
                 input['t'] = ts_in * t[i]
                 v_uncond, v_cond = model(input)['data'].float().chunk(2)
                 v = v_uncond + self.guidance_scale * (v_cond - v_uncond)
             else:
-                input['data'] = x
-                input['target'] = -x.new_ones((x.size(0),), dtype=torch.long)
+                input['data'] = z
+                input['target'] = -z.new_ones((z.size(0),), dtype=torch.long)
                 input['t'] = ts * t[i]
                 v = model(input)['data'].float()
 
-            # Predict the noise and the denoised image
-            pred = x * alphas[i] - v * sigmas[i]
-            eps = x * sigmas[i] + v * alphas[i]
+            x = z * alphas[i] - v * sigmas[i]
+            eps = z * sigmas[i] + v * alphas[i]
 
             # If we are not on the last timestep, compute the noisy image for the
             # next timestep.
@@ -63,13 +160,13 @@ class Sampler:
 
                 # Recombine the predicted noise and predicted denoised image in the
                 # correct proportions for the next step
-                x = pred * alphas[i + 1] + eps * adjusted_sigma  # ddim eq(12)
+                z = x * alphas[i + 1] + eps * adjusted_sigma  # ddim eq(12)
 
                 # Add the correct amount of fresh noise
                 if self.eta:
-                    x += torch.randn_like(x) * ddim_sigma
+                    z += torch.randn_like(z) * ddim_sigma
         # If we are on the last timestep, output the denoised image
-        return pred
+        return x
 
     def apply_normalize(self, data, low, high):
         data.clamp_(min=low, max=high)
