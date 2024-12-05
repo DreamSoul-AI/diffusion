@@ -4,7 +4,7 @@ from model import get_alphas_sigmas, X, Eps, V
 
 
 class Sampler:
-    def __init__(self, num_steps=100, guidance_scale=1.0, eta=0.0, normalize=True):
+    def __init__(self, num_steps=100, guidance_scale=1.0, eta=0.0, normalize=False):
         self.num_steps = num_steps
         self.guidance_scale = guidance_scale
         self.eta = eta
@@ -76,8 +76,11 @@ class Sampler:
         """Draws samples from a model given starting noise for the Epsilon objective."""
         model.train(False)
         ts = z.new_ones([z.shape[0]])
+        noise = z.clone()
+
 
         # Define timesteps and compute alphas and sigmas based on the schedule
+        # t = torch.linspace(1, 0, self.num_steps + 1)[:-1].to(z.device)
         t = torch.linspace(1, 0, self.num_steps + 1)[:-1].to(z.device)
         alphas, sigmas = get_alphas_sigmas(t)
 
@@ -94,6 +97,8 @@ class Sampler:
                 input['t'] = ts_in * t[i]
                 eps_uncond, eps_cond = model(input)['data'].float().chunk(2)
                 eps = eps_uncond + self.guidance_scale * (eps_cond - eps_uncond)
+                # print(eps_uncond.max(), eps_uncond.min())
+                # print(eps_cond.max(), eps_uncond.min())
             else:
                 input['data'] = z
                 input['target'] = -z.new_ones((z.size(0),), dtype=torch.long)
@@ -101,6 +106,10 @@ class Sampler:
                 eps = model(input)['data'].float()
 
             x = (z - eps * sigmas[i]) / alphas[i]
+            # print(alphas[i], sigmas[i])
+            # print(x.max(), x.min())
+            # print(z.max(), z.min())
+            # print(eps.max(), eps.min())
             eps = eps
 
             # If not on the last timestep, calculate the noisy image for the next timestep
@@ -149,6 +158,11 @@ class Sampler:
             x = z * alphas[i] - v * sigmas[i]
             eps = z * sigmas[i] + v * alphas[i]
 
+            # print(alphas[i], sigmas[i])
+            # print(x.max(), x.min())
+            # print(z.max(), z.min())
+            # print(eps.max(), eps.min())
+            # exit()
             # If we are not on the last timestep, compute the noisy image for the
             # next timestep.
             if i < self.num_steps - 1:

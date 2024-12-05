@@ -6,7 +6,7 @@ def process_control():
     cfg['model_name'] = cfg['control']['model_name']
     cfg['formulation_mode'] = cfg['control']['formulation_mode']
 
-    cfg['batch_size'] = 100
+    cfg['batch_size'] = 256
     cfg['step_period'] = 1
     cfg['num_steps'] = None
     cfg['eval_period'] = 200
@@ -38,17 +38,11 @@ def process_control():
     cfg[tag]['optimizer']['batch_size'] = {'train': cfg['batch_size'], 'test': 5 * cfg['batch_size']}
     cfg[tag]['optimizer']['step_period'] = cfg['step_period']
     cfg[tag]['optimizer']['num_steps'] = cfg['num_steps']
-    cfg[tag]['optimizer']['scheduler_name'] = 'LinearAnnealingLR'
+    # cfg[tag]['optimizer']['scheduler_name'] = 'LinearAnnealingLR'
+    cfg[tag]['optimizer']['scheduler_name'] = 'None'
     cfg[tag]['optimizer']['warmup_ratio'] = 0
 
-    # Overwrite if needed
-    # cfg['generate']['num_steps'] = 100
-    # cfg['generate']['guidance_scale'] = 2.
-    # The amount of noise to add each timestep when sampling
-    # controls the scale of the variance (0 is DDIM, and 1 is one type of DDPM)
-    # 0 = no noise (DDIM)
-    # 1 = full noise (DDPM)
-    # cfg['generate']['eta'] = 0.
     cfg['generate']['batch_size'] = 5
     cfg['generate']['img_fmt'] = 'png'
+    cfg['generate']['normalize'] = False
     return

@@ -3,7 +3,7 @@
 control:
   data_name: MNIST
   model_name: base
-  formulation_mode: v
+  formulation_mode: x
 # generate
 generate:
   num_steps: 100
