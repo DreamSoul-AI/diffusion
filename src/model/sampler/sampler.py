@@ -53,7 +53,7 @@ class Sampler:
                 x = model(input)['data'].float()
 
             x = x
-            eps = (x - x * alphas[i]) / sigmas[i]
+            eps = (z - x * alphas[i]) / sigmas[i]
 
             # If not on the last timestep, calculate the noisy image for the next timestep
             if i < self.num_steps - 1:
@@ -82,6 +82,8 @@ class Sampler:
         # Define timesteps and compute alphas and sigmas based on the schedule
         # t = torch.linspace(1, 0, self.num_steps + 1)[:-1].to(z.device)
         t = torch.linspace(1, 0, self.num_steps + 1)[:-1].to(z.device)
+        # t = torch.linspace(0, 1, self.num_steps + 1)[:-1].to(z.device)
+
         alphas, sigmas = get_alphas_sigmas(t)
 
         input = {}
@@ -106,10 +108,10 @@ class Sampler:
                 eps = model(input)['data'].float()
 
             x = (z - eps * sigmas[i]) / alphas[i]
-            # print(alphas[i], sigmas[i])
-            # print(x.max(), x.min())
-            # print(z.max(), z.min())
-            # print(eps.max(), eps.min())
+            print(alphas[i], sigmas[i])
+            print(x.max(), x.min())
+            print(z.max(), z.min())
+            print(eps.max(), eps.min())
             eps = eps
 
             # If not on the last timestep, calculate the noisy image for the next timestep
