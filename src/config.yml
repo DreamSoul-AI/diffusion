@@ -8,7 +8,7 @@ control:
 generate:
   num_steps: 100
   guidance_scale: 2.
-  eta: 0.
+  eta: 1.
 # experiment
 pin_memory: True
 num_workers: 2

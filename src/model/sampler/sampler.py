@@ -76,20 +76,22 @@ class Sampler:
         """Draws samples from a model given starting noise for the Epsilon objective."""
         model.train(False)
         ts = z.new_ones([z.shape[0]])
-        noise = z.clone()
-
 
         # Define timesteps and compute alphas and sigmas based on the schedule
         # t = torch.linspace(1, 0, self.num_steps + 1)[:-1].to(z.device)
-        t = torch.linspace(1, 0, self.num_steps + 1)[:-1].to(z.device)
-        # t = torch.linspace(0, 1, self.num_steps + 1)[:-1].to(z.device)
-
+        t = torch.linspace(1, 0, self.num_steps + 1)[1:].to(z.device)
+        # t = torch.linspace(1, 0, self.num_steps + 1)[1:].flip([0]).to(z.device)
+        # print(t)
+        # t = torch.linspace(1, 0, self.num_steps + 1).to(z.device)
         alphas, sigmas = get_alphas_sigmas(t)
+        # print(alphas, sigmas)
+        # exit()
 
         input = {}
         x = None
         # The sampling loop
         for i in tqdm(range(self.num_steps)):
+            # for i in tqdm(reversed(range(self.num_steps))):
             if self.guidance_scale > 1 and classes is not None:
                 x_in = torch.cat([z, z])  # Duplicate input for unconditional and conditional
                 ts_in = torch.cat([ts, ts])
@@ -99,8 +101,6 @@ class Sampler:
                 input['t'] = ts_in * t[i]
                 eps_uncond, eps_cond = model(input)['data'].float().chunk(2)
                 eps = eps_uncond + self.guidance_scale * (eps_cond - eps_uncond)
-                # print(eps_uncond.max(), eps_uncond.min())
-                # print(eps_cond.max(), eps_uncond.min())
             else:
                 input['data'] = z
                 input['target'] = -z.new_ones((z.size(0),), dtype=torch.long)
@@ -108,20 +108,25 @@ class Sampler:
                 eps = model(input)['data'].float()
 
             x = (z - eps * sigmas[i]) / alphas[i]
-            print(alphas[i], sigmas[i])
-            print(x.max(), x.min())
-            print(z.max(), z.min())
-            print(eps.max(), eps.min())
+            print(sigmas[i], alphas[i], z.mean(), z.max(), z.min(), x.mean(), eps.mean())
             eps = eps
 
             # If not on the last timestep, calculate the noisy image for the next timestep
             if i < self.num_steps - 1:
+                # if i > 0:
                 ddim_sigma = self.eta * (sigmas[i + 1] ** 2 / sigmas[i] ** 2).sqrt() * \
                              (1 - alphas[i] ** 2 / alphas[i + 1] ** 2).sqrt()
                 adjusted_sigma = (sigmas[i + 1] ** 2 - ddim_sigma ** 2).sqrt()
+                # ddim_sigma = self.eta * (sigmas[i - 1] ** 2 / sigmas[i] ** 2).sqrt() * \
+                #              (1 - alphas[i] ** 2 / alphas[i - 1] ** 2).sqrt()
+                # adjusted_sigma = (sigmas[i - 1] ** 2 - ddim_sigma ** 2).sqrt()
 
+                # adjusted_sigma = sigmas[i] ** 2
+                # print(adjusted_sigma, ddim_sigma)
+                # exit()
                 # Recombine the denoised image and the noise for the next step
                 z = x * alphas[i + 1] + eps * adjusted_sigma
+                # z = x * alphas[i - 1] + eps * adjusted_sigma
 
                 # Add noise if eta > 0
                 if self.eta:
@@ -135,7 +140,8 @@ class Sampler:
         model.train(False)
         ts = z.new_ones([z.shape[0]])
 
-        t = torch.linspace(1, 0, self.num_steps + 1)[:-1].to(z.device)
+        # t = torch.linspace(1, 0, self.num_steps + 1)[:-1].to(z.device)
+        t = torch.linspace(1, 0, self.num_steps + 1).to(z.device)
         alphas, sigmas = get_alphas_sigmas(t)
 
         input = {}
@@ -160,11 +166,6 @@ class Sampler:
             x = z * alphas[i] - v * sigmas[i]
             eps = z * sigmas[i] + v * alphas[i]
 
-            # print(alphas[i], sigmas[i])
-            # print(x.max(), x.min())
-            # print(z.max(), z.min())
-            # print(eps.max(), eps.min())
-            # exit()
             # If we are not on the last timestep, compute the noisy image for the
             # next timestep.
             if i < self.num_steps - 1:
