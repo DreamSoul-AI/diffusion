@@ -3,7 +3,7 @@
 control:
   data_name: MNIST
   model_name: base
-  formulation_mode: eps
+  formulation_mode: v
 # generate
 generate:
   num_steps: 100
