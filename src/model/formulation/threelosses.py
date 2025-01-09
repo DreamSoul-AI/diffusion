@@ -16,6 +16,7 @@ class Threelosses(nn.Module):
         self.backbone = backbone
 
     def forward(self, x_0, t, cond, training=True):
+        combined_prediction = {}
         if training:
             # Forward diffusion sample to generate noisy inputs and targets
             noised_reals, v_targets, eps_targets, x0_targets, classes_drop = self.forward_diffusion_sample(x_0, t, cond)
@@ -57,7 +58,9 @@ class Threelosses(nn.Module):
             loss = w_v * loss_v + w_eps * loss_eps + w_x0 * loss_x0
 
             # Combine the three predicted components
-            combined_prediction = v_predicted + eps_predicted + x0_predicted
+            combined_prediction['v_predicted'] = v_predicted
+            combined_prediction['eps_predicted'] = eps_predicted
+            combined_prediction['x0_predicted'] = x0_predicted
         else:
             # Inference mode: predict a combination of v, eps, and x_0
             # Forward diffusion sample to generate noisy inputs and targets
@@ -72,7 +75,9 @@ class Threelosses(nn.Module):
             x0_predicted = (noised_reals - eps_predicted * sigmas) / alphas
 
             # Combine the three predicted components
-            combined_prediction = v_predicted + eps_predicted + x0_predicted
+            combined_prediction['v_predicted'] = v_predicted
+            combined_prediction['eps_predicted'] = eps_predicted
+            combined_prediction['x0_predicted'] = x0_predicted
             loss = None  # No loss in inference mode
         return combined_prediction, loss
 
