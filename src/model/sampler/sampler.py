@@ -1,6 +1,6 @@
 import torch
 from tqdm import tqdm
-from model import get_alphas_sigmas, X, Eps, V
+from model import get_alphas_sigmas, X, Eps, V, Threelosses
 
 
 class Sampler:
@@ -163,6 +163,67 @@ class Sampler:
                 input['t'] = ts * t[i]
                 v = model(input)['data'].float()
 
+            x = z * alphas[i] - v * sigmas[i]
+            eps = z * sigmas[i] + v * alphas[i]
+
+            # If we are not on the last timestep, compute the noisy image for the
+            # next timestep.
+            if i < self.num_steps - 1:
+                # If eta > 0, adjust the scaling factor for the predicted noise
+                # downward according to the amount of additional noise to add
+                ddim_sigma = self.eta * (sigmas[i + 1] ** 2 / sigmas[i] ** 2).sqrt() * \
+                             (1 - alphas[i] ** 2 / alphas[i + 1] ** 2).sqrt()
+                adjusted_sigma = (sigmas[i + 1] ** 2 - ddim_sigma ** 2).sqrt()
+
+                # Recombine the predicted noise and predicted denoised image in the
+                # correct proportions for the next step
+                z = x * alphas[i + 1] + eps * adjusted_sigma  # ddim eq(12)
+
+                # Add the correct amount of fresh noise
+                if self.eta:
+                    z += torch.randn_like(z) * ddim_sigma
+        # If we are on the last timestep, output the denoised image
+        return x
+
+    @torch.no_grad()
+    def sample_threelosses(self, z, model, classes=None):
+        """
+        Draws samples from the three-loss diffusion model.
+        
+        Args:
+            z: Initial noise tensor.
+            model: The trained three-loss diffusion model.
+            classes: Optional class labels for conditional generation.
+            
+        Returns:
+            The final generated sample.
+        """
+        model.eval()  # Set model to evaluation mode
+        ts = z.new_ones([z.shape[0]])  # Timesteps tensor
+        t = torch.linspace(1, 0, self.num_steps + 1).to(z.device)  # Diffusion schedule
+        alphas, sigmas = get_alphas_sigmas(t)  # Compute alphas and sigmas
+    
+        input = {}
+        x = None  # Placeholder for the generated sample
+    
+        for i in tqdm(range(self.num_steps)):
+            # Handle classifier-free guidance if applicable
+            if self.guidance_scale > 1 and classes is not None:
+                z_in = torch.cat([z, z])  # Duplicate for unconditional and conditional inputs
+                ts_in = torch.cat([ts, ts])
+                classes_in = torch.cat([-torch.ones_like(classes), classes])
+                input['data'] = z_in
+                input['target'] = classes_in
+                input['t'] = ts_in * t[i]
+                outputs = model(input)['data']
+                v_uncond, v_cond = outputs['v_predicted'].float().chunk(2)
+                v = v_uncond + self.guidance_scale * (v_cond - v_uncond)
+            else:
+                input['data'] = z
+                input['target'] = -z.new_ones((z.size(0),), dtype=torch.long)
+                input['t'] = ts * t[i]
+                v = model(input)['data'].float()
+    
             x = z * alphas[i] - v * sigmas[i]
             eps = z * sigmas[i] + v * alphas[i]
 
