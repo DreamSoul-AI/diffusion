@@ -1,6 +1,6 @@
 import torch
 from tqdm import tqdm
-from model import get_alphas_sigmas, X, Eps, V, Threelosses
+from model import get_alphas_sigmas, X, Xcon, Eps, V, Threelosses
 
 
 class Sampler:
@@ -17,6 +17,8 @@ class Sampler:
             samples = self.sample_eps(noise, model, classes)
         elif isinstance(model.core, V):
             samples = self.sample_v(noise, model, classes)
+        elif isinstance(model.core, Xcon):
+            samples = self.sample_x(noise, model, classes)
         else:
             raise NotImplementedError
         if self.normalize:

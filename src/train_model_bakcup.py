@@ -44,30 +44,24 @@ def runExperiment():
     dataset = make_dataset(cfg['data_name'])
     dataset = process_dataset(dataset)
     model = make_model(cfg['model'])
-    # ema_model = make_model(cfg['model'])
-    # mu = cfg['mu']
     result = resume(cfg['checkpoint_path'], resume_mode=cfg['resume_mode'])
     if result is None:
         cfg['step'] = 0
         model = model.to(cfg['device'])
-        # ema_model = ema_model.to(cfg['device'])
         optimizer = make_optimizer(model.parameters(), cfg[cfg['tag']]['optimizer'])
         scheduler = make_scheduler(optimizer, cfg[cfg['tag']]['optimizer'])
         logger = make_logger(cfg['logger_path'], data_name=cfg['data_name'], run_mode=cfg['run_mode'])
     else:
         cfg['step'] = result['cfg']['step']
         model = model.to(cfg['device'])
-        # ema_model = ema_model.to(cfg['device'])
         optimizer = make_optimizer(model.parameters(), cfg[cfg['tag']]['optimizer'])
         scheduler = make_scheduler(optimizer, cfg[cfg['tag']]['optimizer'])
         logger = make_logger(cfg['logger_path'], data_name=cfg['data_name'], run_mode=cfg['run_mode'])
         model.load_state_dict(result['model'])
-        # ema_model.load_state_dict(result['model'])
         optimizer.load_state_dict(result['optimizer'])
         scheduler.load_state_dict(result['scheduler'])
         logger.load_state_dict(result['logger'])
         logger.reset()
-    # GradScaler helps manage mixed precision training, which can significantly speed up training while using less memory.
     scaler = torch.cuda.amp.GradScaler() if cfg['gradient_scaler'] else None
     data_loader = make_data_loader(dataset, cfg[cfg['tag']]['optimizer']['batch_size'], cfg['num_steps'],
                                    cfg['step'], cfg['step_period'], cfg['pin_memory'], cfg['num_workers'],
@@ -81,7 +75,7 @@ def runExperiment():
                   'logger': logger.state_dict()}
         check(result, cfg['checkpoint_path'])
         if logger.compare('test'):
-            shutil.copytree(cfg['checkpoint_path'], cfg['best_path'], dirs_exist_ok=True)   
+            shutil.copytree(cfg['checkpoint_path'], cfg['best_path'], dirs_exist_ok=True)
         logger.reset()
     return
 
@@ -97,15 +91,10 @@ def train(data_loader, model, optimizer, scaler, scheduler, logger):
             input = to_device(input, cfg['device'])
             output = model(input)
             loss = output['loss']
-            # ema_model = output['ema_model']
             if scaler is not None:
                 scaler.scale(loss).backward()
-                # for param_ema, param_model in zip(ema_model.parameters(), model.parameters()):
-                #     param_ema.data = mu * param_ema.data + (1 - mu) * param_model.data
             else:
                 loss.backward()
-                # for param_ema, param_model in zip(ema_model.parameters(), model.parameters()):
-                #     param_ema.data = mu * param_ema.data + (1 - mu) * param_model.data
             if (i + 1) % cfg['step_period'] == 0:
                 if scaler is not None:
                     scaler.step(optimizer)

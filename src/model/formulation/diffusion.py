@@ -6,7 +6,7 @@ class Diffusion(nn.Module):
     def __init__(self, core):
         super().__init__()
         self.rng = torch.quasirandom.SobolEngine(1, scramble=True)
-        self.core = core
+        self.core = core 
 
     def forward(self, input):
         x_0 = input['data']

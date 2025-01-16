@@ -64,8 +64,14 @@ def generate(model):
     samples = sampler.sample(noise, model, classes)
 
     makedir_exist_ok(os.path.join(cfg['sample_path']))
-    save_image(samples, os.path.join(cfg['sample_path'], 'sample.{}'.format(cfg['generate']['img_fmt'])),
-               nrow=cfg['model']['target_size'])
+    # save_image(samples, os.path.join(cfg['sample_path'], 'sample.{}'.format(cfg['generate']['img_fmt'])),
+    #            nrow=cfg['model']['target_size'])
+    existing_samples = [f for f in os.listdir(cfg['sample_path']) if f.startswith('sample_')]
+    next_index = len(existing_samples)
+    print(f"Found {next_index} existing samples in {cfg['sample_path']}")
+    save_image(samples, 
+              os.path.join(cfg['sample_path'], 'sample_{}.{}'.format(next_index, cfg['generate']['img_fmt'])),
+              nrow=cfg['model']['target_size'])
     return samples
 
 

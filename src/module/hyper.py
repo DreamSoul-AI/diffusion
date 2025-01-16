@@ -10,7 +10,7 @@ def process_control():
     cfg['step_period'] = 1
     cfg['num_steps'] = None
     cfg['eval_period'] = 200
-    cfg['num_epochs'] = 10
+    cfg['num_epochs'] = 2
     cfg['collate_mode'] = 'dict'
     cfg['gradient_scaler'] = False
 

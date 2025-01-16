@@ -3,10 +3,10 @@
 control:
   data_name: MNIST
   model_name: base
-  formulation_mode: v
+  formulation_mode: xcon
 # generate
 generate:
-  num_steps: 100
+  num_steps: 10
   guidance_scale: 2.
   eta: 1.
 # experiment
@@ -18,3 +18,5 @@ log_interval: 0.25
 device: cuda
 resume_mode: 0
 profile: False
+mu: 0.1
+lambda: 0.01
