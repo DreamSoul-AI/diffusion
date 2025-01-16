@@ -1,11 +1,11 @@
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
-from .diffusion import get_alphas_sigmas
-from ..backbone import expand_to_planes, FourierFeatures
+from model.backbone import FourierFeatures
+from .utils import get_alphas_sigmas, expand_to_planes
 
 
-class Threelosses(nn.Module):
+class Regularized(nn.Module):
     def __init__(self, backbone, data_shape, hidden_size, target_size):
         super().__init__()
         self.data_shape = data_shape
@@ -18,68 +18,60 @@ class Threelosses(nn.Module):
     def forward(self, x_0, t, cond, training=True):
         combined_prediction = {}
         if training:
-            # Forward diffusion sample to generate noisy inputs and targets
             noised_reals, v_targets, eps_targets, x0_targets, classes_drop = self.forward_diffusion_sample(x_0, t, cond)
-            
-            # # Normalize targets
-            # v_targets = self.normalize(v_targets)
-            # eps_targets = self.normalize(eps_targets)
-            # x0_targets = self.normalize(x0_targets)
-            
-            # Model prediction
-            v_predicted = self.forward_diffusion_pass(noised_reals, t, classes_drop)
-            
-            # Calculate predicted noise and x_0 from v
+            predicted_v = self.forward_diffusion_pass(noised_reals, t, classes_drop)
             alphas, sigmas = get_alphas_sigmas(t)
             alphas, sigmas = alphas[:, None, None, None], sigmas[:, None, None, None]
-            
-            eps_predicted = (v_predicted * sigmas + noised_reals) / alphas
-            x0_predicted = (noised_reals - eps_predicted * sigmas) / alphas
-            
+            predicted_x0 = noised_reals * alphas - predicted_v * sigmas
+            predicted_eps = noised_reals * sigmas + predicted_v * alphas
+            output_target = predicted_v
             # Regularize predictions
-            v_predicted = torch.tanh(v_predicted)
-            eps_predicted = torch.tanh(eps_predicted)
-            x0_predicted = torch.tanh(x0_predicted)
+            # v_predicted = torch.tanh(v_predicted)
+            # eps_predicted = torch.tanh(eps_predicted)
+            # x0_predicted = torch.tanh(x0_predicted)
 
             # Compute individual losses
-            loss_v = F.mse_loss(v_predicted, v_targets)
-            loss_eps = F.mse_loss(eps_predicted, eps_targets)
-            loss_x0 = F.mse_loss(x0_predicted, x0_targets)
-            
+            loss_v = F.mse_loss(predicted_v, v_targets)
+            loss_x0 = F.mse_loss(predicted_x0, x0_targets)
+            loss_eps = F.mse_loss(predicted_eps, eps_targets)
+
             # # Weight losses by their magnitude
             # w_v = 1.0 / (loss_v.item() + 1e-5)
             # w_eps = 1.0 / (loss_eps.item() + 1e-5)
             # w_x0 = 1.0 / (loss_x0.item() + 1e-5)
-            
+
             # Use fixed weights
-            w_v, w_eps, w_x0 = 0.4, 0.3, 0.3
-            
+            w_v, w_x0, w_eps = 1, 0.1, 0.1
+
             # Compute final loss
-            loss = w_v * loss_v + w_eps * loss_eps + w_x0 * loss_x0
+            loss = w_v * loss_v + w_x0 * loss_x0 + w_eps * loss_eps
 
             # Combine the three predicted components
-            combined_prediction['v_predicted'] = v_predicted
-            combined_prediction['eps_predicted'] = eps_predicted
-            combined_prediction['x0_predicted'] = x0_predicted
+            # combined_prediction['v_predicted'] = v_predicted
+            # combined_prediction['eps_predicted'] = eps_predicted
+            # combined_prediction['x0_predicted'] = x0_predicted
         else:
             # Inference mode: predict a combination of v, eps, and x_0
             # Forward diffusion sample to generate noisy inputs and targets
             noised_reals, v_targets, eps_targets, x0_targets, classes_drop = self.forward_diffusion_sample(x_0, t, cond)
-            
-            alphas, sigmas = get_alphas_sigmas(t)
-            alphas, sigmas = alphas[:, None, None, None], sigmas[:, None, None, None]
-            
-            # Model prediction
-            v_predicted = self.forward_diffusion_pass(x_0, t, cond)
-            eps_predicted = (v_predicted * sigmas + noised_reals) / alphas
-            x0_predicted = (noised_reals - eps_predicted * sigmas) / alphas
 
-            # Combine the three predicted components
-            combined_prediction['v_predicted'] = v_predicted
-            combined_prediction['eps_predicted'] = eps_predicted
-            combined_prediction['x0_predicted'] = x0_predicted
-            loss = None  # No loss in inference mode
-        return combined_prediction, loss
+            alphas, sigmas = get_alphas_sigmas(t)
+            # alphas, sigmas = alphas[:, None, None, None], sigmas[:, None, None, None]
+
+            # Model prediction
+            predicted_v = self.forward_diffusion_pass(x_0, t, cond)
+            output_target = predicted_v
+            loss = 0
+
+            # eps_predicted = (v_predicted * sigmas + noised_reals) / alphas
+            # x0_predicted = (noised_reals - eps_predicted * sigmas) / alphas
+            #
+            # # Combine the three predicted components
+            # # combined_prediction['v_predicted'] = v_predicted
+            # # combined_prediction['eps_predicted'] = eps_predicted
+            # # combined_prediction['x0_predicted'] = x0_predicted
+            # loss = None  # No loss in inference mode
+        return output_target, loss
 
     def forward_diffusion_pass(self, x_0, t, cond):
         """Pass inputs through the backbone network."""
@@ -114,9 +106,9 @@ class Threelosses(nn.Module):
         return (tensor - mean) / (std + 1e-5)  # Add epsilon to avoid division by zero
 
 
-def threelosses(backbone, cfg):
+def regularized(backbone, cfg):
     data_shape = cfg['data_shape']
     hidden_size = cfg['diffusion']['hidden_size']
     target_size = cfg['target_size']
-    model = Threelosses(backbone, data_shape, hidden_size, target_size)
+    model = Regularized(backbone, data_shape, hidden_size, target_size)
     return model

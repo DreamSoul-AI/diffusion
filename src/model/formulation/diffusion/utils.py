@@ -1,27 +1,5 @@
 import math
-from model.model import *
-
-
-class Diffusion(nn.Module):
-    def __init__(self, core):
-        super().__init__()
-        self.rng = torch.quasirandom.SobolEngine(1, scramble=True)
-        self.core = core
-
-    def forward(self, input):
-        x_0 = input['data']
-        cond = input['target']
-        if 'training' in input:
-            training = input['training']
-        else:
-            training = self.training
-        if training:
-            t = self.rng.draw(x_0.shape[0])[:, 0].to(x_0.device)
-        else:
-            t = input['t']
-        output = {}
-        output['data'], output['loss'] = self.core(x_0, t, cond, training)
-        return output
+import torch
 
 
 def extract(a, t, x_shape):
@@ -52,7 +30,20 @@ def get_alphas_sigmas(t):
     return torch.cos(t * math.pi / 2), torch.sin(t * math.pi / 2)
 
 
-def diffusion(core, cfg):
-    model = Diffusion(core)
-    # model.apply(init_param)
-    return model
+def expand_to_planes(input, shape, repeat_batch=False):
+    """
+    Expand input to match the spatial dimensions of shape.
+    Optionally repeat across the batch dimension if repeat_batch is True.
+    Handles cases where input does not have spatial dimensions.
+    """
+    # If the batch dimension needs to be repeated to match the target batch size
+    if repeat_batch and input.shape[0] == 1:
+        # Expand the batch dimension without extra repetitions
+        input = input.expand(shape[0], -1)
+
+    # Add spatial dimensions and repeat as necessary to match `shape`
+    if input.dim() == 2:  # Assuming input is [batch_size, channels]
+        input = input[:, :, None, None]  # Add spatial dimensions: [batch_size, channels, 1, 1]
+
+    # Repeat spatial dimensions to match the target shape (height and width)
+    return input.expand(-1, -1, shape[2], shape[3])

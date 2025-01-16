@@ -3,7 +3,7 @@ import os
 import torch
 import torch.backends.cudnn as cudnn
 from config import cfg, process_args
-from model import make_model, Sampler
+from model import make_model, make_sampler
 from dataset import make_dataset, process_dataset
 from module import resume, process_control, makedir_exist_ok
 from torchvision.utils import save_image
@@ -52,8 +52,7 @@ def runExperiment():
 
 
 def generate(model):
-    sampler = Sampler(cfg['generate']['num_steps'], cfg['generate']['guidance_scale'], cfg['generate']['eta'],
-                      cfg['generate']['normalize'])
+    sampler = make_sampler(cfg['generate'])
     if cfg['data_name'] in ['MNIST', 'CIFAR10']:
         size = (cfg['generate']['batch_size'] * cfg['model']['target_size'], *cfg['model']['data_shape'])
         noise = torch.randn(size).to(cfg['device'])

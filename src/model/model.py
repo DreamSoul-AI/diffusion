@@ -9,8 +9,17 @@ from transformers import get_linear_schedule_with_warmup
 def make_model(cfg):
     backbone = eval('model.{}(cfg)'.format(cfg['model_name']))
     formulation = eval('model.{}(backbone, cfg)'.format(cfg['formulation_mode']))
-    model_ = model.diffusion(formulation, cfg)
+    model_ = model.formulation.diffusion(formulation, cfg)
     return model_
+
+
+def make_sampler(cfg):
+    num_steps = cfg['num_steps']
+    guidance_scale = cfg['guidance_scale']
+    eta = cfg['eta']
+    normalize = cfg['normalize']
+    sampler = model.sampler.DiffusionSampler(num_steps, guidance_scale, eta, normalize)
+    return sampler
 
 
 def make_loss(output, input):
