@@ -9,7 +9,12 @@ from transformers import get_linear_schedule_with_warmup
 def make_model(cfg):
     backbone = eval('model.{}(cfg)'.format(cfg['model_name']))
     formulation = eval('model.{}(backbone, cfg)'.format(cfg['formulation_mode']))
-    model_ = model.formulation.diffusion(formulation, cfg)
+    if cfg['model_mode'] == 'diffusion':
+        model_ = model.formulation.diffusion(formulation, cfg)
+    elif cfg['model_mode'] == 'flow':
+        model_ = model.formulation.flow(formulation, cfg)
+    else:
+        raise ValueError('Not valid model mode')
     return model_
 
 

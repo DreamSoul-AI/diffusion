@@ -2,8 +2,9 @@
 # control
 control:
   data_name: MNIST
-  model_name: base
-  formulation_mode: regularized
+  model_name: unet
+  model_mode: flow
+  formulation_mode: ot
 # generate
 generate:
   num_steps: 100

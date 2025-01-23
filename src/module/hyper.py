@@ -4,6 +4,7 @@ from config import cfg
 def process_control():
     cfg['data_name'] = cfg['control']['data_name']
     cfg['model_name'] = cfg['control']['model_name']
+    cfg['model_mode'] = cfg['control']['model_mode']
     cfg['formulation_mode'] = cfg['control']['formulation_mode']
 
     cfg['batch_size'] = 256
@@ -12,19 +13,15 @@ def process_control():
     cfg['eval_period'] = 200
     cfg['num_epochs'] = 10
     cfg['collate_mode'] = 'dict'
-    cfg['gradient_scaler'] = False
+    # cfg['gradient_scaler'] = False
 
     cfg['model'] = {}
     cfg['model']['model_name'] = cfg['model_name']
+    cfg['model']['model_mode'] = cfg['model_mode']
     cfg['model']['formulation_mode'] = cfg['formulation_mode']
-    cfg['model']['linear'] = {}
-    cfg['model']['mlp'] = {'hidden_size': 128, 'scale_factor': 2, 'num_layers': 2, 'activation': 'relu'}
-    cfg['model']['cnn'] = {'hidden_size': [64, 128, 256, 512]}
-    cfg['model']['resnet10'] = {'hidden_size': [64, 128, 256, 512]}
-    cfg['model']['resnet18'] = {'hidden_size': [64, 128, 256, 512]}
-    cfg['model']['wresnet28x2'] = {'depth': 28, 'widen_factor': 2, 'drop_rate': 0.0}
-    cfg['model']['wresnet28x8'] = {'depth': 28, 'widen_factor': 8, 'drop_rate': 0.0}
-    cfg['model']['diffusion'] = {'hidden_size': 64, 'class_dropout': 0.2}
+    cfg['model']['unet'] = {'hidden_size': 64}
+    cfg['model']['diffusion'] = {'class_dropout': 0.2}
+    cfg['model']['flow'] = {'class_dropout': 0.2}
 
     tag = cfg['tag']
     cfg[tag] = {}

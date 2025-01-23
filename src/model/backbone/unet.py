@@ -1,7 +1,7 @@
 from .layers import *
 
 
-class Base(nn.Module):
+class UNet(nn.Module):
     def __init__(self, data_shape, hidden_size):
         super().__init__()
         self.data_shape = data_shape
@@ -47,13 +47,13 @@ class Base(nn.Module):
             ResConvBlock(c, c, self.data_shape[0], is_last=True),
         )
 
-    def forward(self, input):
-        output = self.net(input)
-        return output
+    def forward(self, x):
+        x = self.net(x)
+        return x
 
 
-def base(cfg):
+def unet(cfg):
     data_shape = cfg['data_shape']
-    hidden_size = cfg['diffusion']['hidden_size']
-    model = Base(data_shape, hidden_size)
+    hidden_size = cfg['unet']['hidden_size']
+    model = UNet(data_shape, hidden_size)
     return model
