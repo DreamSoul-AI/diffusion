@@ -20,7 +20,7 @@ def process_control():
     cfg['model']['model_mode'] = cfg['model_mode']
     cfg['model']['formulation_mode'] = cfg['formulation_mode']
     cfg['model']['unet'] = {'hidden_size': 64}
-    cfg['model']['diffusion'] = {'class_dropout': 0.2}
+    cfg['model']['diffusion'] = {'class_dropout': 0.2, 'regularization': {'v': 1, 'x0': 0.1, 'eps': 0.1}}
     cfg['model']['flow'] = {'class_dropout': 0.2}
 
     tag = cfg['tag']
