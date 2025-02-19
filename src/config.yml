@@ -4,7 +4,7 @@ control:
   data_name: MNIST
   model_name: unet
   model_mode: diffusion
-  formulation_mode: regularized
+  formulation_mode: eps
 # generate
 generate:
   num_steps: 100
