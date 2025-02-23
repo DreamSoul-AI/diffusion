@@ -1,39 +1,55 @@
+import math
 from .layers import *
 
 
 class MLP(nn.Module):
-    # def __init__(self, in_dim, out_dim, h_dims, n_frequencies):
-    def __init__(self, data_shape, hidden_size, n_frequencies):
+    def __init__(self, data_size, hidden_size, timestep_embedding_size, cond_embedding_size):
         super().__init__()
-        self.data_shape = data_shape
+        self.data_size = data_size
         self.hidden_size = hidden_size
+        self.timestep_embedding_size = timestep_embedding_size
+        self.cond_embedding_size = cond_embedding_size
+        #
+        # ins = [in_dim + 2 * n_frequencies] + h_dims
+        # outs = h_dims + [out_dim]
+        # self.n_frequencies = n_frequencies
+        #
+        # self.layers = nn.ModuleList([
+        #     nn.Sequential(nn.Linear(in_d, out_d), nn.LeakyReLU()) for in_d, out_d in zip(ins, outs)
+        # ])
+        # self.top = nn.Sequential(nn.Linear(out_dim, out_dim))
 
-        ins = [in_dim + 2 * n_frequencies] + h_dims
-        outs = h_dims + [out_dim]
-        self.n_frequencies = n_frequencies
+        input_size = math.prod(data_size) + timestep_embedding_size + cond_embedding_size
+        blocks = []
+        for i in range(len(hidden_size)):
+            blocks.append(nn.Linear(input_size, hidden_size[i]))
+            blocks.append(nn.ReLU())
+            input_size = hidden_size[i]
+        self.blocks = nn.Sequential(*blocks)
+        self.output_proj = nn.Linear(input_size, math.prod(data_size))
 
-        self.layers = nn.ModuleList([
-            nn.Sequential(nn.Linear(in_d, out_d), nn.LeakyReLU()) for in_d, out_d in zip(ins, outs)
-        ])
-        self.top = nn.Sequential(nn.Linear(out_dim, out_dim))
+    def feature(self, x, timestep_embedding, cond_embedding):
+        size = x.size()
+        x = x.reshape(x.size(0), -1)
+        x = torch.cat([x, timestep_embedding, cond_embedding], dim=-1)
+        x = self.blocks(x)
+        return x, size
 
-    # # TODO: improve the way we do it sinusoidal position embedding (check the fourier embedding)
-    # def time_encoder(self, t):
-    #     freq = 2 * torch.arange(self.n_frequencies, device=t.device) * torch.pi
-    #     t = freq * t[..., None]
-    #     return torch.cat((t.cos(), t.sin()), dim=-1)
+    def output(self, x, size):
+        x = self.output_proj(x)
+        x = x.view(size)
+        return x
 
-    def forward(self, x):
-        # t = self.time_encoder(t)
-        # x = torch.cat((x, t), dim=-1)
-        for l in self.layers:
-            x = l(x)
-        x = self.top(x)
+    def forward(self, x, timestep_embedding=None, cond_embedding=None):
+        x, size = self.feature(x, timestep_embedding, cond_embedding)
+        x = self.output(x, size)
         return x
 
 
 def mlp(cfg):
-    data_shape = cfg['data_shape']
-    hidden_size = cfg['diffusion']['hidden_size']
-    model = MLP(data_shape, hidden_size)
+    data_size = cfg['data_size']
+    hidden_size = cfg['mlp']['hidden_size']
+    timestep_embedding_size = cfg['timestep_embedding_size']
+    cond_embedding_size = cfg['cond_embedding_size']
+    model = MLP(data_size, hidden_size, timestep_embedding_size, cond_embedding_size)
     return model

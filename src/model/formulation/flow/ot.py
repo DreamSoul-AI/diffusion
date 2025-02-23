@@ -1,7 +1,7 @@
 from zuko.utils import odeint
 from model.model import *
 from model.backbone import FourierFeatures
-from ..utils import expand_to_planes
+# from ..utils import expand_to_planes
 
 
 class OptimalTransport(nn.Module):

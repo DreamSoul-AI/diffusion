@@ -54,7 +54,7 @@ def runExperiment():
 def generate(model):
     sampler = make_sampler(cfg['generate'])
     if cfg['data_name'] in ['MNIST', 'CIFAR10']:
-        size = (cfg['generate']['batch_size'] * cfg['model']['target_size'], *cfg['model']['data_shape'])
+        size = (cfg['generate']['batch_size'] * cfg['model']['target_size'], *cfg['model']['data_size'])
         noise = torch.randn(size).to(cfg['device'])
         classes = torch.arange(cfg['model']['target_size'], device=cfg['device']).repeat(
             cfg['generate']['batch_size'])

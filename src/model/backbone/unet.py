@@ -2,14 +2,16 @@ from .layers import *
 
 
 class UNet(nn.Module):
-    def __init__(self, data_shape, hidden_size):
+    def __init__(self, data_size, hidden_size, timestep_embedding_size, cond_embedding_size):
         super().__init__()
-        self.data_shape = data_shape
+        self.data_size = data_size
         self.hidden_size = hidden_size
+        self.timestep_embedding_size = timestep_embedding_size
+        self.cond_embedding_size = cond_embedding_size
         c = hidden_size  # The base channel count
 
         self.net = nn.Sequential(  # 32x32
-            ResConvBlock(self.data_shape[0] + 16 + 4, c, c),
+            ResConvBlock(self.data_size[0] + timestep_embedding_size + cond_embedding_size, c, c),
             ResConvBlock(c, c, c),
             SkipBlock([
                 nn.AvgPool2d(2),  # 32x32 -> 16x16
@@ -44,16 +46,23 @@ class UNet(nn.Module):
                 nn.Upsample(scale_factor=2, mode='bilinear', align_corners=False),
             ]),  # 16x16 -> 32x32
             ResConvBlock(c * 2, c, c),
-            ResConvBlock(c, c, self.data_shape[0], is_last=True),
+            ResConvBlock(c, c, self.data_size[0], is_last=True),
         )
 
-    def forward(self, x):
+    def forward(self, x, timestep_embedding=None, cond_embedding=None):
+        timestep_embedding = expand_to_planes(timestep_embedding, x.shape)
+        cond_embedding = expand_to_planes(cond_embedding, x.shape)
+        x = torch.cat([x, timestep_embedding, cond_embedding], dim=1)
         x = self.net(x)
         return x
 
 
+
+
 def unet(cfg):
-    data_shape = cfg['data_shape']
+    data_size = cfg['data_size']
     hidden_size = cfg['unet']['hidden_size']
-    model = UNet(data_shape, hidden_size)
+    timestep_embedding_size = cfg['timestep_embedding_size']
+    cond_embedding_size = cfg['cond_embedding_size']
+    model = UNet(data_size, hidden_size, timestep_embedding_size, cond_embedding_size)
     return model
