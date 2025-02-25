@@ -8,13 +8,13 @@ from ..utils import get_alphas_sigmas
 class Base(nn.Module):
     def __init__(self, backbone, target_size, class_dropout, timestep_embedding_size, cond_embedding_size):
         super().__init__()
+        self.backbone = backbone
         self.target_size = target_size
         self.class_dropout = class_dropout
         self.timestep_embedding = FourierFeatures(1, timestep_embedding_size)
         self.cond_embedding = nn.Embedding(self.target_size + 1, cond_embedding_size)
-        self.backbone = backbone
 
-    def forward_diffusion_pass(self, z, t, cond):
+    def forward_diffusion_pass(self, z, t, cond): # TODO: Need to be able to train unconditional model
         timestep_embedding = self.timestep_embedding(t[:, None])
         cond_embedding = self.cond_embedding(cond + 1)
         pred = self.backbone(z, timestep_embedding, cond_embedding)
@@ -30,7 +30,7 @@ class Base(nn.Module):
         # Combine the ground truth images and the noise
         alphas = alphas.view(alphas.size(0), *[1 for _ in range(len(x_0.shape[1:]))])
         sigmas = sigmas.view(alphas.size(0), *[1 for _ in range(len(x_0.shape[1:]))])
-        noised_reals = x_0 * alphas + noise * sigmas
+        noised_reals = alphas * x_0 + sigmas * noise
         return noised_reals
 
     def make_targets(self, x_0, noise, t):
@@ -82,7 +82,7 @@ class V(Base):
         alphas, sigmas = get_alphas_sigmas(t)
         alphas = alphas.view(alphas.size(0), *[1 for _ in range(len(x_0.shape[1:]))])
         sigmas = sigmas.view(alphas.size(0), *[1 for _ in range(len(x_0.shape[1:]))])
-        targets = noise * alphas - x_0 * sigmas
+        targets = alphas * noise - sigmas * x_0
         return targets
 
 
@@ -114,8 +114,8 @@ class Regularized(Base):
             noised_reals = self.make_noised_reals(z, noise, t)
             classes_drop = self.make_classes_drop(cond)
             predicted_v = self.forward_diffusion_pass(noised_reals, t, classes_drop)
-            predicted_x0 = noised_reals * alphas - predicted_v * sigmas
-            predicted_eps = noised_reals * sigmas + predicted_v * alphas
+            predicted_x0 = alphas * noised_reals - sigmas * predicted_v
+            predicted_eps = sigmas * noised_reals + alphas * predicted_v
             predicted = predicted_v
             v_targets, eps_targets, x0_targets = self.make_targets(z, noise, t)
 

@@ -52,4 +52,5 @@ def mlp(cfg):
     timestep_embedding_size = cfg['timestep_embedding_size']
     cond_embedding_size = cfg['cond_embedding_size']
     model = MLP(data_size, hidden_size, timestep_embedding_size, cond_embedding_size)
+    # model.apply(init_param)
     return model

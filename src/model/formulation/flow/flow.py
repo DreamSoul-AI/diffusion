@@ -3,14 +3,13 @@ from model.model import *
 from zuko.utils import odeint
 
 
-class Flow(nn.Module): # TODO: seems the same as diffusion, let ot inherit this
+# TODO: seems the same as diffusion, let ot inherit this
+class Flow(nn.Module):
 
-    def __init__(self, core, sig_min=1e-3):
+    def __init__(self, core):
         super().__init__()
         self.rng = torch.quasirandom.SobolEngine(1, scramble=True)
         self.core = core
-        self.sig_min = sig_min
-        self.eps = 1e-5
 
     # def psi_t(self, x, x_1, t, sig_min=1e-3):
     #     """ Conditional Flow
@@ -18,12 +17,6 @@ class Flow(nn.Module): # TODO: seems the same as diffusion, let ot inherit this
     #     return (1 - (1 - sig_min) * t) * x + t * x_1
 
     def forward(self, input):
-        """ Compute loss
-        """
-        # t ~ Unif([0, 1])
-        # t = (torch.rand(1, device=x_1.device) + torch.arange(len(x_1), device=x_1.device) / len(x_1)) % (1 - self.eps)
-        # t = t[:, None].expand(x_1.shape)
-        # x ~ p_t(x_0)
         x_1 = input['data']
         cond = input['target']
         if 'training' in input:

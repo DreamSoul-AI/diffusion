@@ -2,8 +2,8 @@
 # control
 control:
   data_name: MNIST
-  model_name: unet
-  model_mode: diffusion
+  model_name: mlp
+  model_mode: flow
   formulation_mode: v
 # generate
 generate:

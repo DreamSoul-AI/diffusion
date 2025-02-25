@@ -22,7 +22,7 @@ def process_control():
     cfg['model']['unet'] = {'hidden_size': 64}
     cfg['model']['mlp'] = {'hidden_size': [128, 256]}
     cfg['model']['diffusion'] = {'class_dropout': 0.2, 'regularization': {'v': 1, 'x0': 0.1, 'eps': 0.1}}
-    cfg['model']['flow'] = {'class_dropout': 0.2}
+    cfg['model']['flow'] = {'class_dropout': 0.2, 'sig_min': 1e-3}
     cfg['model']['timestep_embedding_size'] = 16
     cfg['model']['cond_embedding_size'] = 4
 

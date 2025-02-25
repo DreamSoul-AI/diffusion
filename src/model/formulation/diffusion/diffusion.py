@@ -28,5 +28,4 @@ class Diffusion(nn.Module):
 
 def diffusion(core, cfg):
     model = Diffusion(core)
-    # model.apply(init_param)
     return model
