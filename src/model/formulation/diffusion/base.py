@@ -12,11 +12,19 @@ class Base(nn.Module):
         self.target_size = target_size
         self.class_dropout = class_dropout
         self.timestep_embedding = FourierFeatures(1, timestep_embedding_size)
-        self.cond_embedding = nn.Embedding(self.target_size + 1, cond_embedding_size)
+        if cond_embedding_size > 0:
+            self.cond_embedding = nn.Embedding(self.target_size + 1, cond_embedding_size)
+            self.is_cond = True
+        else:
+            self.cond_embedding = None
+            self.is_cond = False
 
-    def forward_diffusion_pass(self, z, t, cond): # TODO: Need to be able to train unconditional model
-        timestep_embedding = self.timestep_embedding(t[:, None])
-        cond_embedding = self.cond_embedding(cond + 1)
+    def forward_diffusion_pass(self, z, t, cond=None):
+        timestep_embedding = self.timestep_embedding(t[:, None]) # TODO: adapt this None
+        if self.cond_embedding is not None and cond is not None:
+            cond_embedding = self.cond_embedding(cond + 1)
+        else:
+            cond_embedding = None
         pred = self.backbone(z, timestep_embedding, cond_embedding)
         return pred
 
@@ -36,19 +44,22 @@ class Base(nn.Module):
     def make_targets(self, x_0, noise, t):
         raise NotImplementedError
 
-    def make_classes_drop(self, classes):
-        # Drop out the class of the examples
-        to_drop = torch.rand(classes.shape, device=classes.device).le(self.class_dropout)
-        classes_drop = torch.where(to_drop, -torch.ones_like(classes), classes)
-        return classes_drop
+    def make_cond(self, classes):
+        if self.is_cond:
+            # Drop out the class of the examples
+            to_drop = torch.rand(classes.shape, device=classes.device).le(self.class_dropout)
+            cond = torch.where(to_drop, -torch.ones_like(classes), classes)
+        else:
+            cond = None
+        return cond
 
     def forward(self, z, t, cond, training=True):
         if training:
             noise = self.make_noise(z)
             noised_reals = self.make_noised_reals(z, noise, t)
             targets = self.make_targets(z, noise, t)
-            classes_drop = self.make_classes_drop(cond)
-            predicted = self.forward_diffusion_pass(noised_reals, t, classes_drop)
+            cond = self.make_cond(cond)
+            predicted = self.forward_diffusion_pass(noised_reals, t, cond)
             loss = F.mse_loss(predicted, targets)
         else:
             predicted = self.forward_diffusion_pass(z, t, cond)

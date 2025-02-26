@@ -23,7 +23,10 @@ def make_sampler(cfg):
     guidance_scale = cfg['guidance_scale']
     eta = cfg['eta']
     normalize = cfg['normalize']
-    sampler = model.sampler.DiffusionSampler(num_steps, guidance_scale, eta, normalize)
+    if cfg['model_mode'] == 'diffusion':
+        sampler = model.sampler.DiffusionSampler(num_steps, guidance_scale, eta, normalize)
+    else:
+        sampler = model.sampler.FlowSampler(num_steps, guidance_scale, eta, normalize)
     return sampler
 
 

@@ -23,7 +23,7 @@ class DiffusionSampler:
         elif isinstance(model.core, (V, Regularized)):
             samples = self._sample('v', noise, model, classes)
         else:
-            raise NotImplementedError
+            raise ValueError('Not valid model')
         if self.normalize:
             samples = self.apply_normalize(samples, -1, 1)
         return samples
@@ -49,7 +49,7 @@ class DiffusionSampler:
         input = {}
         # The sampling loop
         for i in tqdm(range(self.num_steps)):
-            if self.guidance_scale > 1 and classes is not None:
+            if model.core.is_cond and self.guidance_scale > 1 and classes is not None:
                 input['data'] = torch.cat([z, z])  # Duplicate input for unconditional and conditional
                 input['target'] = torch.cat([-torch.ones_like(classes), classes])  # Classifier-free guidance
                 input['t'] = torch.cat([ts, ts]) * t[i]

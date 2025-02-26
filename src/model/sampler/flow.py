@@ -19,7 +19,7 @@ class FlowSampler:
         if isinstance(model.core, OptimalTransport):
             samples = self._sample('ot', noise, model, classes)
         else:
-            raise NotImplementedError
+            raise ValueError('Not valid model')
         if self.normalize:
             samples = self.apply_normalize(samples, -1, 1)
         return samples
@@ -32,73 +32,45 @@ class FlowSampler:
 
         # Define timesteps and compute alphas and sigmas based on the schedule
         if mode == 'ot':
-            # TODO: this is reverse from diffusion
-            t = torch.linspace(0, 1, self.num_steps + 1).to(z.device)
+            # t = torch.linspace(0, 1, self.num_steps + 1, device=z.device)
+            t = torch.linspace(0, 1, self.num_steps, device=z.device)
         else:
             raise ValueError('Not valid mode')
 
-        x = None
-        input = {}
         for i in tqdm(range(self.num_steps-1)):
-            if self.guidance_scale > 1 and classes is not None:
-                input['data'] = torch.cat([z, z])  # Duplicate input for unconditional and conditional
-                input['target'] = torch.cat([-torch.ones_like(classes), classes])  # Classifier-free guidance
-                t = torch.cat([ts, ts]) * t[i]
-                t_1 = torch.cat([ts, ts]) * t[i + 1]
-                uncond, cond = model.core.decode(input['data'], input['target'], t, t_1).float().chunk(2)
+            if model.core.is_cond and self.guidance_scale > 1 and classes is not None:
+                x_0 = torch.cat([z, z])  # Duplicate input for unconditional and conditional
+                cond = torch.cat([-torch.ones_like(classes), classes])  # Classifier-free guidance
+                uncond, cond = model.core.decode(x_0, t[i], t[i + 1], cond=cond).float().chunk(2)
                 pred = uncond + self.guidance_scale * (cond - uncond)
             else:
-                input['data'] = z
-                input['target'] = -z.new_ones((z.size(0),), dtype=torch.long)
-                t = torch.cat([ts, ts]) * t[i]
-                t_1 = torch.cat([ts, ts]) * t[i + 1]
-                pred = model(input)['data'].float()
+                x_0 = z
+                cond = -z.new_ones((z.size(0),), dtype=torch.long)
+                # pred = model(input)['data'].float()
+                pred = model.core.decode(x_0, t[i], t[i + 1], cond=cond)
+            z += pred
 
-        with torch.no_grad():
-            x_t = [torch.randn(n_samples, 2, device=device)]
-            for t in range(len(t_steps) - 1):
-                x_t += [v_t.decode_t0_t1(x_t[-1], t_steps[t], t_steps[t + 1])]
+        # with torch.no_grad():
+        #     x_t = [torch.randn(n_samples, 2, device=device)]
+        #     for t in range(len(t_steps) - 1):
+        #         x_t += [v_t.decode_t0_t1(x_t[-1], t_steps[t], t_steps[t + 1])]
 
         # pad predictions
-        x_t = [x_t[0]] * 10 + x_t + [x_t[-1]] * 10
+        # x_t = [x_t[0]] * 10 + x_t + [x_t[-1]] * 10
 
-        # alphas, sigmas = get_alphas_sigmas(t)
+        # # Sampling
+        # N_SAMPLES = 10_000
+        # N_STEPS = 100
+        # t_steps = torch.linspace(0, 1, N_STEPS, device=device)
+        # with torch.no_grad():
+        #     x_t = [torch.randn(n_samples, 2, device=device)]
+        #     for t in range(len(t_steps) - 1):
+        #         x_t += [v_t.decode_t0_t1(x_t[-1], t_steps[t], t_steps[t + 1])]
         #
-        # x = None
-        # input = {}
-        # # The sampling loop
-        # for i in tqdm(range(self.num_steps)):
-        #     if self.guidance_scale > 1 and classes is not None:
-        #         input['data'] = torch.cat([z, z])  # Duplicate input for unconditional and conditional
-        #         input['target'] = torch.cat([-torch.ones_like(classes), classes])  # Classifier-free guidance
-        #         input['t'] = torch.cat([ts, ts]) * t[i]
-        #         uncond, cond = model(input)['data'].float().chunk(2)
-        #         pred = uncond + self.guidance_scale * (cond - uncond)
-        #     else:
-        #         input['data'] = z
-        #         input['target'] = -z.new_ones((z.size(0),), dtype=torch.long)
-        #         input['t'] = ts * t[i]
-        #         pred = model(input)['data'].float()
+        # # pad predictions
+        # x_t = [x_t[0]] * 10 + x_t + [x_t[-1]] * 10
         #
-        #     if mode == 'x':
-        #         x = pred
-        #         eps = (z - x * alphas[i]) / sigmas[i]
-        #     elif mode == 'eps':
-        #         eps = pred
-        #         x = (z - eps * sigmas[i]) / alphas[i]
-        #     elif mode == 'v':
-        #         v = pred
-        #         x = z * alphas[i] - v * sigmas[i]
-        #         eps = z * sigmas[i] + v * alphas[i]
-        #     else:
-        #         raise ValueError('Not valid mode')
-        #
-        #     if i < self.num_steps - 1:
-        #         ddim_sigma = self.eta * (sigmas[i + 1] ** 2 / sigmas[i] ** 2).sqrt() * \
-        #                      (1 - alphas[i] ** 2 / alphas[i + 1] ** 2).sqrt()
-        #         adjusted_sigma = (sigmas[i + 1] ** 2 - ddim_sigma ** 2).sqrt()
-        #         z = x * alphas[i + 1] + eps * adjusted_sigma
-        #         # Add noise if eta > 0
-        #         if self.eta:
-        #             z += torch.randn_like(z) * ddim_sigma
-        return x
+        # x_t_numpy = np.array([x.detach().cpu().numpy() for x in x_t])
+        # filename = f"{DATASET}_{MODEL}_{N_SAMPLES}_{N_STEPS}.npy"
+        # np.save(filename, x_t_numpy)
+        return z

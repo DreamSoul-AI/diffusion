@@ -1,3 +1,4 @@
+from functools import partial
 from zuko.utils import odeint
 from model.model import *
 from model.backbone import FourierFeatures
@@ -63,33 +64,46 @@ class Base(nn.Module):
         self.target_size = target_size
         self.class_dropout = class_dropout
         self.timestep_embedding = FourierFeatures(1, timestep_embedding_size)
-        self.cond_embedding = nn.Embedding(self.target_size + 1, cond_embedding_size)
+        if cond_embedding_size > 0:
+            self.cond_embedding = nn.Embedding(self.target_size + 1, cond_embedding_size)
+            self.is_cond = True
+        else:
+            self.cond_embedding = None
+            self.is_cond = False
 
-    def forward_diffusion_pass(self, z, t, cond):
+    def forward_diffusion_pass(self, z, t, cond=None):
         timestep_embedding = self.timestep_embedding(t[:, None])
-        cond_embedding = self.cond_embedding(cond + 1)
+        if self.cond_embedding is not None and cond is not None:
+            cond_embedding = self.cond_embedding(cond + 1)
+        else:
+            cond_embedding = None
         pred = self.backbone(z, timestep_embedding, cond_embedding)
         return pred
 
-    def make_noise(self, x_0):
-        noise = torch.randn_like(x_0)
+    def make_noise(self, x_1):
+        noise = torch.randn_like(x_1)
         return noise
 
-    def make_noised_reals(self, noise, x, t):
+    def make_noised_reals(self, x_1, noise, t):
         raise NotImplementedError
 
-    def make_targets(self, x_0, noise, t):
+    def make_targets(self, x_1, noise, t):
         raise NotImplementedError
 
-    def make_classes_drop(self, classes):
-        # Drop out the class of the examples
-        to_drop = torch.rand(classes.shape, device=classes.device).le(self.class_dropout)
-        classes_drop = torch.where(to_drop, -torch.ones_like(classes), classes)
-        return classes_drop
+    def make_cond(self, classes):
+        if self.is_cond:
+            # Drop out the class of the examples
+            to_drop = torch.rand(classes.shape, device=classes.device).le(self.class_dropout)
+            cond = torch.where(to_drop, -torch.ones_like(classes), classes)
+        else:
+            cond = None
+        return cond
 
-    def ode_wrapper(self, x, t):
-        t = t * torch.ones(len(x), device=x.device)
-        return self(x, t)
+    def ode_wrapper(self, t, x, cond=None):
+        # t = t * torch.ones(len(x), device=x.device)
+        # x = x.new_full((len(t),), t.item(), device=x.device)
+        t = t.expand(x.size(0))
+        return self.forward_diffusion_pass(x, t, cond)
 
     # def decode_t0_t1(self, x_0, t0, t1):  # TODO: merge with decode
     #     return odeint(self.wrapper, x_0, t0, t1, self.parameters())
@@ -100,11 +114,13 @@ class Base(nn.Module):
     # def decode(self, x_0, t0=0., t1=1.):
     #     return odeint(self.ode_wrapper, x_0, t0, t1, self.parameters())
 
-    def encode(self, x_0, cond, t0=1., t1=0.):  # TODO: not used, add t0, t1 option
-        return odeint(self.ode_wrapper, x_0, t0, t1, self.parameters())
+    def encode(self, x_1, t0=1., t1=0., cond=None):  # TODO: not used, add t0, t1 option
+        ode_wrapper = partial(self.ode_wrapper, cond=cond)
+        return odeint(ode_wrapper, x_1, t0, t1, self.parameters())
 
-    def decode(self, noise, cond, t0=0., t1=1.):
-        return odeint(self.ode_wrapper, noise, t0, t1, self.parameters())
+    def decode(self, noise, t0=0., t1=1., cond=None):
+        ode_wrapper = partial(self.ode_wrapper, cond=cond)
+        return odeint(ode_wrapper, noise, t0, t1, self.parameters())
 
     # def forward_diffusion_sample(self, x_1, t, classes):  # TODO: inverse x_0 and x_1 from diffusion
     #     t = t[:, None, None, None]
@@ -137,8 +153,8 @@ class Base(nn.Module):
             noise = self.make_noise(z)
             noised_reals = self.make_noised_reals(z, noise, t)
             targets = self.make_targets(z, noise, t)
-            classes_drop = self.make_classes_drop(cond)
-            predicted = self.forward_diffusion_pass(noised_reals, t, classes_drop)
+            cond = self.make_cond(cond)
+            predicted = self.forward_diffusion_pass(noised_reals, t, cond)
             loss = F.mse_loss(predicted, targets)
         else:
             predicted = self.forward_diffusion_pass(z, t, cond)
@@ -152,14 +168,16 @@ class OptimalTransport(Base):
         super().__init__(backbone, target_size, class_dropout, timestep_embedding_size, cond_embedding_size)
         self.sig_min = sig_min
 
-    def make_noised_reals(self, noise, x, t):
+    def make_noised_reals(self, x_1, noise, t):
         # psi_t
         """ Conditional Flow
         """
-        return (1 - (1 - self.sig_min) * t) * x + t * noise
+        t = t.view(t.size(0), *[1 for _ in range(len(x_1.shape[1:]))])
+        # return (1 - (1 - self.sig_min) * t) * noise + t * x_0
+        return (1 - (1 - self.sig_min) * t) * noise + t * x_1
 
-    def make_targets(self, x_0, noise, t):  # TODO: need to check, why t is not used?
-        targets = x_0 - (1 - self.sig_min) * noise
+    def make_targets(self, x_1, noise, t):  # TODO: need to check, why t is not used?
+        targets = x_1 - (1 - self.sig_min) * noise
         return targets
 
 

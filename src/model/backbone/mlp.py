@@ -1,4 +1,3 @@
-import math
 from .layers import *
 
 
@@ -9,15 +8,6 @@ class MLP(nn.Module):
         self.hidden_size = hidden_size
         self.timestep_embedding_size = timestep_embedding_size
         self.cond_embedding_size = cond_embedding_size
-        #
-        # ins = [in_dim + 2 * n_frequencies] + h_dims
-        # outs = h_dims + [out_dim]
-        # self.n_frequencies = n_frequencies
-        #
-        # self.layers = nn.ModuleList([
-        #     nn.Sequential(nn.Linear(in_d, out_d), nn.LeakyReLU()) for in_d, out_d in zip(ins, outs)
-        # ])
-        # self.top = nn.Sequential(nn.Linear(out_dim, out_dim))
 
         input_size = math.prod(data_size) + timestep_embedding_size + cond_embedding_size
         blocks = []
@@ -28,10 +18,13 @@ class MLP(nn.Module):
         self.blocks = nn.Sequential(*blocks)
         self.output_proj = nn.Linear(input_size, math.prod(data_size))
 
-    def feature(self, x, timestep_embedding, cond_embedding):
+    def feature(self, x, timestep_embedding, cond_embedding=None):
         size = x.size()
         x = x.reshape(x.size(0), -1)
-        x = torch.cat([x, timestep_embedding, cond_embedding], dim=-1)
+        if cond_embedding is None:
+            x = torch.cat([x, timestep_embedding], dim=-1)
+        else:
+            x = torch.cat([x, timestep_embedding, cond_embedding], dim=-1)
         x = self.blocks(x)
         return x, size
 
