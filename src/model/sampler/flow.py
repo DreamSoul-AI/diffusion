@@ -37,18 +37,21 @@ class FlowSampler:
         else:
             raise ValueError('Not valid mode')
 
-        for i in tqdm(range(self.num_steps-1)):
-            if model.core.is_cond and self.guidance_scale > 1 and classes is not None:
-                x_0 = torch.cat([z, z])  # Duplicate input for unconditional and conditional
-                cond = torch.cat([-torch.ones_like(classes), classes])  # Classifier-free guidance
-                uncond, cond = model.core.decode(x_0, t[i], t[i + 1], cond=cond).float().chunk(2)
-                pred = uncond + self.guidance_scale * (cond - uncond)
-            else:
-                x_0 = z
-                cond = -z.new_ones((z.size(0),), dtype=torch.long)
-                # pred = model(input)['data'].float()
-                pred = model.core.decode(x_0, t[i], t[i + 1], cond=cond)
-            z += pred
+        for i in tqdm(range(self.num_steps)):
+            # if model.core.is_cond and self.guidance_scale > 1 and classes is not None:
+            #     x_0 = torch.cat([z, z])  # Duplicate input for unconditional and conditional
+            #     cond = torch.cat([-torch.ones_like(classes), classes])  # Classifier-free guidance
+            #     uncond, cond = model.core.decode(x_0, t[i], t[i + 1], cond=cond).float().chunk(2)
+            #     pred = uncond + self.guidance_scale * (cond - uncond)
+            # else:
+            #     x_0 = z
+                # cond = -z.new_ones((z.size(0),), dtype=torch.long)
+            #     # pred = model(input)['data'].float()
+            #     pred = model.core.decode(x_0, t[i], t[i + 1], cond=cond)
+            # cond = torch.cat([-torch.ones_like(classes), classes])  # Classifier-free guidance
+            ts = t[i].repeat(z.shape[0])
+            pred = model.core.forward_diffusion_pass(z, ts, cond=classes)
+            z += pred * 1 / self.num_steps
 
         # with torch.no_grad():
         #     x_t = [torch.randn(n_samples, 2, device=device)]
