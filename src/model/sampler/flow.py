@@ -33,7 +33,7 @@ class FlowSampler:
         # Define timesteps and compute alphas and sigmas based on the schedule
         if mode == 'ot':
             # t = torch.linspace(0, 1, self.num_steps + 1, device=z.device)
-            t = torch.linspace(0, 1, self.num_steps, device=z.device)
+            t = torch.linspace(0, 1, self.num_steps + 1, device=z.device)
         else:
             raise ValueError('Not valid mode')
 
@@ -49,9 +49,18 @@ class FlowSampler:
             #     # pred = model(input)['data'].float()
             #     pred = model.core.decode(x_0, t[i], t[i + 1], cond=cond)
             # cond = torch.cat([-torch.ones_like(classes), classes])  # Classifier-free guidance
-            ts = t[i].repeat(z.shape[0])
-            pred = model.core.forward_diffusion_pass(z, ts, cond=classes)
-            z += pred * 1 / self.num_steps
+            
+            # ts = t[i].repeat(z.shape[0])
+            # pred = model.core.forward_diffusion_pass(z, ts, cond=classes)
+            # z += pred * 1 / self.num_steps
+            
+            # https://github.com/facebookresearch/flow_matching/blob/main/examples/standalone_flow_matching.ipynb
+            t_start = t[i]
+            t_end = t[i + 1]
+            z_1 = z + model.core.forward_diffusion_pass(z, t_start.repeat(z.shape[0]), cond=classes) * (t_end - t_start) / 2
+            z_2 = z + model.core.forward_diffusion_pass(z_1, (t_start + (t_end - t_start) / 2).repeat(z.shape[0]), cond=classes) * (t_end - t_start) 
+            z = z_2
+            
 
         # with torch.no_grad():
         #     x_t = [torch.randn(n_samples, 2, device=device)]
