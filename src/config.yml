@@ -5,7 +5,7 @@ control:
   model_name: unet
   model_mode: flow
   formulation_mode: ot
-  class_cond: 0
+  class_cond: 1
 # generate
 generate:
   num_steps: 100

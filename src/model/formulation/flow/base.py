@@ -1,60 +1,7 @@
-from functools import partial
-from zuko.utils import odeint
+# from functools import partial
+# from zuko.utils import odeint
 from model.model import *
 from model.backbone import FourierFeatures
-
-
-# # from ..utils import expand_to_planes
-#
-# class Base(nn.Module):
-#     def __init__(self, backbone, target_size, class_dropout, timestep_embedding_size, cond_embedding_size):
-#         super().__init__()
-#         self.backbone = backbone
-#         self.target_size = target_size
-#         self.class_dropout = class_dropout
-#         self.timestep_embedding = FourierFeatures(1, timestep_embedding_size)
-#         self.cond_embedding = nn.Embedding(self.target_size + 1, cond_embedding_size)
-#
-#     # def forward_diffusion_pass(self, z, t, cond):
-#     #     timestep_embedding = self.timestep_embedding(t[:, None])
-#     #     cond_embedding = self.cond_embedding(cond + 1)
-#     #     pred = self.backbone(z, timestep_embedding, cond_embedding)
-#     #     return pred
-#
-#     def make_noise(self, x_0):
-#         noise = torch.randn_like(x_0)
-#         return noise
-#
-#     def make_noised_reals(self, x_0, noise, t):
-#         # Calculate the noise schedule parameters for those timesteps
-#         alphas, sigmas = get_alphas_sigmas(t)
-#         # Combine the ground truth images and the noise
-#         alphas = alphas.view(alphas.size(0), *[1 for _ in range(len(x_0.shape[1:]))])
-#         sigmas = sigmas.view(alphas.size(0), *[1 for _ in range(len(x_0.shape[1:]))])
-#         noised_reals = x_0 * alphas + noise * sigmas
-#         return noised_reals
-#
-#     def make_targets(self, x_0, noise, t):
-#         raise NotImplementedError
-#
-#     def make_classes_drop(self, classes):
-#         # Drop out the class of the examples
-#         to_drop = torch.rand(classes.shape, device=classes.device).le(self.class_dropout)
-#         classes_drop = torch.where(to_drop, -torch.ones_like(classes), classes)
-#         return classes_drop
-#
-#     def forward(self, z, t, cond, training=True):
-#         if training:
-#             noise = self.make_noise(z)
-#             noised_reals = self.make_noised_reals(z, noise, t)
-#             targets = self.make_targets(z, noise, t)
-#             classes_drop = self.make_classes_drop(cond)
-#             predicted = self.forward_diffusion_pass(noised_reals, t, classes_drop)
-#             loss = F.mse_loss(predicted, targets)
-#         else:
-#             predicted = self.forward_diffusion_pass(z, t, cond)
-#             loss = 0
-#         return predicted, loss
 
 
 class Base(nn.Module):
@@ -99,28 +46,28 @@ class Base(nn.Module):
             cond = None
         return cond
 
-    def ode_wrapper(self, t, x, cond=None):
-        # t = t * torch.ones(len(x), device=x.device)
-        # x = x.new_full((len(t),), t.item(), device=x.device)
-        t = t.expand(x.size(0))
-        return self.forward_diffusion_pass(x, t, cond)
+    # def ode_wrapper(self, t, x, cond=None):
+    #     # t = t * torch.ones(len(x), device=x.device)
+    #     # x = x.new_full((len(t),), t.item(), device=x.device)
+    #     t = t.expand(x.size(0))
+    #     return self.forward_diffusion_pass(x, t, cond)
 
-    # def decode_t0_t1(self, x_0, t0, t1):  # TODO: merge with decode
-    #     return odeint(self.wrapper, x_0, t0, t1, self.parameters())
-
-    # def encode(self, x_1, t0=1., t1=0.):  # TODO: not used, add t0, t1 option
-    #     return odeint(self.ode_wrapper, x_1, t0, t1, self.parameters())
+    # # def decode_t0_t1(self, x_0, t0, t1):  # TODO: merge with decode
+    # #     return odeint(self.wrapper, x_0, t0, t1, self.parameters())
     #
-    # def decode(self, x_0, t0=0., t1=1.):
-    #     return odeint(self.ode_wrapper, x_0, t0, t1, self.parameters())
-
-    def encode(self, x_1, t0=1., t1=0., cond=None):  # TODO: not used, add t0, t1 option
-        ode_wrapper = partial(self.ode_wrapper, cond=cond)
-        return odeint(ode_wrapper, x_1, t0, t1, self.parameters())
-
-    def decode(self, noise, t0=0., t1=1., cond=None):
-        ode_wrapper = partial(self.ode_wrapper, cond=cond)
-        return odeint(ode_wrapper, noise, t0, t1, self.parameters())
+    # # def encode(self, x_1, t0=1., t1=0.):  # TODO: not used, add t0, t1 option
+    # #     return odeint(self.ode_wrapper, x_1, t0, t1, self.parameters())
+    # #
+    # # def decode(self, x_0, t0=0., t1=1.):
+    # #     return odeint(self.ode_wrapper, x_0, t0, t1, self.parameters())
+    #
+    # def encode(self, x_1, t0=1., t1=0., cond=None):  # TODO: not used, add t0, t1 option
+    #     ode_wrapper = partial(self.ode_wrapper, cond=cond)
+    #     return odeint(ode_wrapper, x_1, t0, t1, self.parameters())
+    #
+    # def decode(self, noise, t0=0., t1=1., cond=None):
+    #     ode_wrapper = partial(self.ode_wrapper, cond=cond)
+    #     return odeint(ode_wrapper, noise, t0, t1, self.parameters())
 
     # def forward_diffusion_sample(self, x_1, t, classes):  # TODO: inverse x_0 and x_1 from diffusion
     #     t = t[:, None, None, None]
@@ -176,8 +123,8 @@ class OptimalTransport(Base):
         # return (1 - (1 - self.sig_min) * t) * noise + t * x_0
         return (1 - (1 - self.sig_min) * t) * noise + t * x_1
 
-    def make_targets(self, x_1, noise, t):  # TODO: need to check, why t is not used?
-        targets = x_1 - (1 - self.sig_min) * noise
+    def make_targets(self, x_1, noise, t):
+        targets = x_1 - (1 - self.sig_min) * noise  # TODO: still got question
         return targets
 
 
@@ -259,92 +206,3 @@ class VEDiffusionFlowMatching:
         x = x_1 + self.sigma_t(1. - t) * torch.randn_like(x_1)
 
         return torch.mean((v_t(t[:, 0], x) - self.u_t(t, x, x_1)) ** 2)
-
-# def v(backbone, cfg):
-#     target_size = cfg['target_size']
-#     class_dropout = cfg['diffusion']['class_dropout']
-#     timestep_embedding_size = cfg['timestep_embedding_size']
-#     cond_embedding_size = cfg['cond_embedding_size']
-#     model = V(backbone, target_size, class_dropout, timestep_embedding_size, cond_embedding_size)
-#     return model
-
-# class Net(nn.Module):
-#     def __init__(self, in_dim, out_dim, h_dims, n_frequencies):
-#         super().__init__()
-#
-#         ins = [in_dim + 2 * n_frequencies] + h_dims
-#         outs = h_dims + [out_dim]
-#         self.n_frequencies = n_frequencies
-#
-#         self.layers = nn.ModuleList([
-#             nn.Sequential(nn.Linear(in_d, out_d), nn.LeakyReLU()) for in_d, out_d in zip(ins, outs)
-#         ])
-#         self.top = nn.Sequential(nn.Linear(out_dim, out_dim))
-#
-#     # TODO: improve the way we do it sinusoidal position embedding (check the fourier embedding)
-#     def time_encoder(self, t):
-#         freq = 2 * torch.arange(self.n_frequencies, device=t.device) * torch.pi
-#         t = freq * t[..., None]
-#         return torch.cat((t.cos(), t.sin()), dim=-1)
-#
-#     def forward(self, x, t):
-#         t = self.time_encoder(t)
-#         x = torch.cat((x, t), dim=-1)
-#
-#         for l in self.layers:
-#             x = l(x)
-#         x = self.top(x)
-#         return x
-
-
-# def flow(core, cfg):
-#     model = Flow(core)
-#     # model.apply(init_param)
-#     return model
-
-## Training
-# def get_model(name: str):
-#     if name == "vp":
-#         return VPDiffusionFlowMatching()
-#     elif name == "ve":
-#         return VEDiffusionFlowMatching()
-#     if name == "ot":
-#         return OTFlowMatching()
-#
-#
-# MODEL = "ot"
-# model = get_model(MODEL)
-# net = Net(2, 2, [512] * 5, 10).to(device)
-# v_t = CondVF(net)
-#
-# losses = []
-# # configure optimizer
-# optimizer = torch.optim.Adam(v_t.parameters(), lr=1e-3)
-# n_epochs = 5000
-#
-# for epoch in tqdm(range(n_epochs), ncols=88):
-#     for batch in dataloader:
-#         x_1 = batch[0]
-#         # compute loss
-#         loss = model.loss(v_t, x_1)
-#         optimizer.zero_grad()
-#         loss.backward()
-#         optimizer.step()
-#         losses += [loss.detach()]
-
-
-# Sampling
-# N_SAMPLES = 10_000
-# N_STEPS = 100
-# t_steps = torch.linspace(0, 1, N_STEPS, device=device)
-# with torch.no_grad():
-#     x_t = [torch.randn(n_samples, 2, device=device)]
-#     for t in range(len(t_steps)-1):
-#       x_t += [v_t.decode_t0_t1(x_t[-1], t_steps[t], t_steps[t+1])]
-#
-# # pad predictions
-# x_t = [x_t[0]]*10 + x_t + [x_t[-1]] * 10
-#
-# x_t_numpy = np.array([x.detach().cpu().numpy() for x in x_t])
-# filename = f"{DATASET}_{MODEL}_{N_SAMPLES}_{N_STEPS}.npy"
-# np.save(filename, x_t_numpy)
