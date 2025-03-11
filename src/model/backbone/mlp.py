@@ -2,10 +2,11 @@ from .layers import *
 
 
 class MLP(nn.Module):
-    def __init__(self, data_size, hidden_size, timestep_embedding_size, cond_embedding_size):
+    def __init__(self, data_size, hidden_size, activation, timestep_embedding_size, cond_embedding_size):
         super().__init__()
         self.data_size = data_size
         self.hidden_size = hidden_size
+        self.activation = activation
         self.timestep_embedding_size = timestep_embedding_size
         self.cond_embedding_size = cond_embedding_size
 
@@ -13,7 +14,7 @@ class MLP(nn.Module):
         blocks = []
         for i in range(len(hidden_size)):
             blocks.append(nn.Linear(input_size, hidden_size[i]))
-            blocks.append(nn.ReLU())
+            blocks.append(Activation(activation))
             input_size = hidden_size[i]
         self.blocks = nn.Sequential(*blocks)
         self.output_proj = nn.Linear(input_size, math.prod(data_size))
@@ -42,8 +43,9 @@ class MLP(nn.Module):
 def mlp(cfg):
     data_size = cfg['data_size']
     hidden_size = cfg['mlp']['hidden_size']
+    activation = cfg['mlp']['activation']
     timestep_embedding_size = cfg['timestep_embedding_size']
     cond_embedding_size = cfg['cond_embedding_size']
-    model = MLP(data_size, hidden_size, timestep_embedding_size, cond_embedding_size)
+    model = MLP(data_size, hidden_size, activation, timestep_embedding_size, cond_embedding_size)
     # model.apply(init_param)
     return model

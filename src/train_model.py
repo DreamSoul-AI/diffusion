@@ -62,7 +62,6 @@ def runExperiment():
         scheduler.load_state_dict(result['scheduler'])
         logger.load_state_dict(result['logger'])
         logger.reset()
-    # scaler = torch.cuda.amp.GradScaler() if cfg['gradient_scaler'] else None
     data_loader = make_data_loader(dataset, cfg[cfg['tag']]['optimizer']['batch_size'], cfg['num_steps'],
                                    cfg['step'], cfg['step_period'], cfg['pin_memory'], cfg['num_workers'],
                                    cfg['collate_mode'], cfg['seed'])

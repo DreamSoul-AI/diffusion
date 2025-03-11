@@ -2,6 +2,28 @@ import torch
 import torch.nn as nn
 import math
 
+class Activation(nn.Module):
+    def __init__(self, activation='relu', inplace=False):
+        super().__init__()
+        if activation == 'relu':
+            activation = nn.ReLU(inplace=inplace)
+        elif activation == 'sigmoid':
+            activation = nn.Sigmoid()
+        elif activation == 'silu':
+            activation = nn.SiLU()
+        elif activation == 'elu':
+            activation = nn.ELU()
+        elif activation == 'gelu':
+            activation = nn.GELU()
+        elif activation == 'none':
+            activation = nn.Identity()
+        else:
+            raise ValueError('Not valid activation')
+        self.activation = activation
+
+    def forward(self, x):
+        return self.activation(x)
+
 
 class ResidualBlock(nn.Module):
     def __init__(self, main, skip=None):

@@ -14,14 +14,16 @@ def process_control():
     cfg['eval_period'] = 200
     cfg['num_epochs'] = 10
     cfg['collate_mode'] = 'dict'
-    # cfg['gradient_scaler'] = False
 
     cfg['model'] = {}
     cfg['model']['model_name'] = cfg['model_name']
     cfg['model']['model_mode'] = cfg['model_mode']
     cfg['model']['formulation_mode'] = cfg['formulation_mode']
     cfg['model']['unet'] = {'hidden_size': 64}
-    cfg['model']['mlp'] = {'hidden_size': [128, 256]}
+    if cfg['data_name'] in ['TwoMoons']:
+        cfg['model']['mlp'] = {'hidden_size': [64, 64, 64], 'activation': 'elu'}
+    else:
+        cfg['model']['mlp'] = {'hidden_size': [128, 256], 'activation': 'relu'}
 
     cfg['model']['timestep_embedding_size'] = 16
     if cfg['class_cond'] > 0:
@@ -38,11 +40,11 @@ def process_control():
     tag = cfg['tag']
     cfg[tag] = {}
     cfg[tag]['optimizer'] = {}
-    cfg[tag]['optimizer']['optimizer_name'] = 'AdamW'
-    cfg[tag]['optimizer']['lr'] = 1e-3
+    cfg[tag]['optimizer']['optimizer_name'] = 'Adam'
+    cfg[tag]['optimizer']['lr'] = 1e-2
     cfg[tag]['optimizer']['momentum'] = 0.9
     cfg[tag]['optimizer']['betas'] = (0.9, 0.999)
-    cfg[tag]['optimizer']['weight_decay'] = 1e-4
+    cfg[tag]['optimizer']['weight_decay'] = 0
     cfg[tag]['optimizer']['nesterov'] = True
     cfg[tag]['optimizer']['batch_size'] = {'train': cfg['batch_size'], 'test': 5 * cfg['batch_size']}
     cfg[tag]['optimizer']['step_period'] = cfg['step_period']
@@ -52,7 +54,10 @@ def process_control():
     cfg[tag]['optimizer']['warmup_ratio'] = 0
 
     cfg['generate']['model_mode'] = cfg['model_mode']
-    cfg['generate']['batch_size'] = 5
+    if cfg['data_name'] in ['TwoMoons']:
+        cfg['generate']['batch_size'] = 150
+    else:
+        cfg['generate']['batch_size'] = 5
     cfg['generate']['img_fmt'] = 'png'
     cfg['generate']['normalize'] = False
     return
