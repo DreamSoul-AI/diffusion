@@ -11,9 +11,10 @@ def process_control():
     cfg['batch_size'] = 256
     cfg['step_period'] = 1
     cfg['num_steps'] = None
-    cfg['eval_period'] = 200
-    cfg['num_epochs'] = 10
+    cfg['eval_period'] = 100
+    cfg['num_epochs'] = 10000
     cfg['collate_mode'] = 'dict'
+    cfg['save_checkpoint'] = False
 
     cfg['model'] = {}
     cfg['model']['model_name'] = cfg['model_name']
@@ -25,10 +26,12 @@ def process_control():
     else:
         cfg['model']['mlp'] = {'hidden_size': [128, 256], 'activation': 'relu'}
 
-    cfg['model']['timestep_embedding_size'] = 16
+    cfg['model']['timestep_embedding_mode'] = 'identity'
+    cfg['model']['timestep_embedding_size'] = 1
+    # cfg['model']['timestep_embedding_size'] = 16
     if cfg['class_cond'] > 0:
         class_dropout = 0.2
-        cfg['model']['cond_embedding_size'] = 4
+        cfg['model']['cond_embedding_size'] = 1
     else:
         class_dropout = 0
         cfg['model']['cond_embedding_size'] = 0
@@ -46,7 +49,9 @@ def process_control():
     cfg[tag]['optimizer']['betas'] = (0.9, 0.999)
     cfg[tag]['optimizer']['weight_decay'] = 0
     cfg[tag]['optimizer']['nesterov'] = True
-    cfg[tag]['optimizer']['batch_size'] = {'train': cfg['batch_size'], 'test': 5 * cfg['batch_size']}
+    cfg[tag]['optimizer']['test_batch_ratio'] = 4
+    cfg[tag]['optimizer']['batch_size'] = {'train': cfg['batch_size'],
+                                           'test': cfg[tag]['optimizer']['test_batch_ratio'] * cfg['batch_size']}
     cfg[tag]['optimizer']['step_period'] = cfg['step_period']
     cfg[tag]['optimizer']['num_steps'] = cfg['num_steps']
     # cfg[tag]['optimizer']['scheduler_name'] = 'LinearAnnealingLR'

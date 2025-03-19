@@ -69,12 +69,13 @@ def runExperiment():
     while cfg['step'] < cfg['num_steps']:
         train(data_iterator, model, optimizer, scheduler, logger)
         test(data_loader['test'], model, logger)
-        result = {'cfg': cfg, 'model': model.state_dict(),
-                  'optimizer': optimizer.state_dict(), 'scheduler': scheduler.state_dict(),
-                  'logger': logger.state_dict()}
-        check(result, cfg['checkpoint_path'])
-        if logger.compare('test'):
-            shutil.copytree(cfg['checkpoint_path'], cfg['best_path'], dirs_exist_ok=True)
+        if cfg['save_checkpoint'] or (not cfg['save_checkpoint'] and cfg['step'] >= cfg['num_steps']):
+            result = {'cfg': cfg, 'model': model.state_dict(),
+                      'optimizer': optimizer.state_dict(), 'scheduler': scheduler.state_dict(),
+                      'logger': logger.state_dict()}
+            check(result, cfg['checkpoint_path'])
+            if logger.compare('test'):
+                shutil.copytree(cfg['checkpoint_path'], cfg['best_path'], dirs_exist_ok=True)
         logger.reset()
     return
 

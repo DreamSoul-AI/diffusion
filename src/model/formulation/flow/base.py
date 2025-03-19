@@ -1,16 +1,17 @@
 # from functools import partial
 # from zuko.utils import odeint
 from model.model import *
-from model.backbone import FourierFeatures
+from model.backbone import TimeEmbedding
 
 
 class Base(nn.Module):
-    def __init__(self, backbone, target_size, class_dropout, timestep_embedding_size, cond_embedding_size):
+    def __init__(self, backbone, target_size, class_dropout, timestep_embedding_size, timestep_embedding_mode,
+                 cond_embedding_size):
         super().__init__()
         self.backbone = backbone
         self.target_size = target_size
         self.class_dropout = class_dropout
-        self.timestep_embedding = FourierFeatures(1, timestep_embedding_size)
+        self.timestep_embedding = TimeEmbedding(timestep_embedding_size, timestep_embedding_mode)
         if cond_embedding_size > 0:
             self.cond_embedding = nn.Embedding(self.target_size + 1, cond_embedding_size)
             self.is_cond = True
@@ -19,7 +20,7 @@ class Base(nn.Module):
             self.is_cond = False
 
     def forward_diffusion_pass(self, z, t, cond=None):
-        timestep_embedding = self.timestep_embedding(t[:, None])
+        timestep_embedding = self.timestep_embedding(t)
         if self.cond_embedding is not None and cond is not None:
             cond_embedding = self.cond_embedding(cond + 1)
         else:
@@ -110,9 +111,10 @@ class Base(nn.Module):
 
 
 class OptimalTransport(Base):
-    def __init__(self, backbone, target_size, class_dropout, timestep_embedding_size, cond_embedding_size,
-                 sig_min=1e-3):
-        super().__init__(backbone, target_size, class_dropout, timestep_embedding_size, cond_embedding_size)
+    def __init__(self, backbone, target_size, class_dropout, timestep_embedding_size, timestep_embedding_mode,
+                 cond_embedding_size, sig_min=1e-3):
+        super().__init__(backbone, target_size, class_dropout, timestep_embedding_size, timestep_embedding_mode,
+                         cond_embedding_size)
         self.sig_min = sig_min
 
     def make_noised_reals(self, x_1, noise, t):
@@ -132,10 +134,11 @@ def ot(backbone, cfg):
     target_size = cfg['target_size']
     class_dropout = cfg['flow']['class_dropout']
     timestep_embedding_size = cfg['timestep_embedding_size']
+    timestep_embedding_mode = cfg['timestep_embedding_mode']
     cond_embedding_size = cfg['cond_embedding_size']
-    sig_min = cfg['flow']['sig_min']
-    model = OptimalTransport(backbone, target_size, class_dropout, timestep_embedding_size, cond_embedding_size,
-                             sig_min)
+    sig_min = cfg['flow']['sig_min'] # TODO: remove this
+    model = OptimalTransport(backbone, target_size, class_dropout, timestep_embedding_size, timestep_embedding_mode,
+                             cond_embedding_size, sig_min)
     return model
 
 

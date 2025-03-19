@@ -65,6 +65,7 @@ def generate(model):
     samples = sampler.sample(noise, model, classes)
 
     makedir_exist_ok(os.path.join(cfg['sample_path']))
+    sample_path = os.path.join(cfg['sample_path'], 'sample.{}'.format(cfg['generate']['img_fmt']))
     if cfg['data_name'] in ['TwoMoons']:
         samples = samples.detach().cpu().numpy()
         fig, axes = plt.subplots()
@@ -72,10 +73,10 @@ def generate(model):
         axes.set_xlim(-3.0, 3.0)
         axes.set_ylim(-3.0, 3.0)
         plt.tight_layout()
-        plt.show()
+        plt.savefig(sample_path, dpi=300, bbox_inches='tight')
+        plt.close(fig)
     else:
-        save_image(samples, os.path.join(cfg['sample_path'], 'sample.{}'.format(cfg['generate']['img_fmt'])),
-               nrow=cfg['model']['target_size'])
+        save_image(samples, sample_path, nrow=cfg['model']['target_size'])
     return samples
 
 

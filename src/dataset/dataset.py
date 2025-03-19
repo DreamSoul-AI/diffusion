@@ -128,7 +128,9 @@ def process_dataset(dataset):
     if 'num_epochs' in cfg:
         if cfg['batch_size'] > len(processed_dataset['train']):
             cfg['batch_size'] = len(processed_dataset['train'])
-            cfg[cfg['tag']]['optimizer']['batch_size'] = {'train': cfg['batch_size'], 'test': 5 * cfg['batch_size']}
+            cfg[cfg['tag']]['optimizer']['batch_size'] = {'train': cfg['batch_size'],
+                                                          'test': cfg[cfg['tag']]['optimizer']['test_batch_ratio'] *
+                                                                  cfg['batch_size']}
         cfg['num_steps'] = int(np.ceil(len(processed_dataset['train']) / cfg['batch_size'])) * cfg['num_epochs']
         cfg['eval_period'] = int(np.ceil(len(processed_dataset['train']) / cfg['batch_size']))
         cfg[cfg['tag']]['optimizer']['num_steps'] = cfg['num_steps']
