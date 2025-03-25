@@ -33,15 +33,21 @@ class TimeEmbedding(nn.Module):
         super().__init__()
         self.embedding_size = embedding_size
         self.embedding_mode = embedding_mode
-        if embedding_mode == 'identity':
-            self.time_embedding = IdentityEmbedding(self.embedding_size)
-        elif embedding_mode == 'linear':
-            self.time_embedding = FourierEmbedding(1, self.embedding_size)
+        if self.embedding_size > 0:
+            if embedding_mode == 'identity':
+                self.time_embedding = IdentityEmbedding(self.embedding_size)
+            elif embedding_mode == 'fourier':
+                self.time_embedding = FourierEmbedding(1, self.embedding_size)
+            else:
+                raise ValueError('Embedding mode {} not supported'.format(embedding_mode))
         else:
-            raise ValueError('Embedding mode {} not supported'.format(embedding_mode))
+            self.time_embedding = None
 
     def forward(self, input):
-        if input.dim() == 1:
-            input = input.unsqueeze(-1)
-        output = self.time_embedding(input)
+        if self.time_embedding is not None:
+            if input.dim() == 1:
+                input = input.unsqueeze(-1)
+            output = self.time_embedding(input)
+        else:
+            output = None
         return output

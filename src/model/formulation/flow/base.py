@@ -21,11 +21,12 @@ class Base(nn.Module):
 
     def forward_diffusion_pass(self, z, t, cond=None):
         timestep_embedding = self.timestep_embedding(t)
-        if self.cond_embedding is not None and cond is not None:
+        if self.cond_embedding is not None and cond is not None: # TODO: wrap this
             cond_embedding = self.cond_embedding(cond + 1)
         else:
             cond_embedding = None
         pred = self.backbone(z, timestep_embedding, cond_embedding)
+        # pred = z + pred # add residual
         return pred
 
     def make_noise(self, x_1):
@@ -112,21 +113,22 @@ class Base(nn.Module):
 
 class OptimalTransport(Base):
     def __init__(self, backbone, target_size, class_dropout, timestep_embedding_size, timestep_embedding_mode,
-                 cond_embedding_size, sig_min=1e-3):
+                 cond_embedding_size):
         super().__init__(backbone, target_size, class_dropout, timestep_embedding_size, timestep_embedding_mode,
                          cond_embedding_size)
-        self.sig_min = sig_min
+        # self.sig_min = sig_min
 
     def make_noised_reals(self, x_1, noise, t):
         # psi_t
         """ Conditional Flow
         """
-        t = t.view(t.size(0), *[1 for _ in range(len(x_1.shape[1:]))])
+        t = t.view(t.size(0), *[1 for _ in range(len(x_1.shape[1:]))]) # TODO: revert time 0 - > 1
         # return (1 - (1 - self.sig_min) * t) * noise + t * x_0
-        return (1 - (1 - self.sig_min) * t) * noise + t * x_1
+        # return (1 - (1 - self.sig_min) * t) * noise + t * x_1
+        return (1 - t) * noise + t * x_1
 
     def make_targets(self, x_1, noise, t):
-        targets = x_1 - (1 - self.sig_min) * noise  # TODO: still got question
+        targets = x_1 - noise  # TODO: still got question
         return targets
 
 
@@ -136,9 +138,9 @@ def ot(backbone, cfg):
     timestep_embedding_size = cfg['timestep_embedding_size']
     timestep_embedding_mode = cfg['timestep_embedding_mode']
     cond_embedding_size = cfg['cond_embedding_size']
-    sig_min = cfg['flow']['sig_min'] # TODO: remove this
+    # sig_min = cfg['flow']['sig_min'] # TODO: remove this
     model = OptimalTransport(backbone, target_size, class_dropout, timestep_embedding_size, timestep_embedding_mode,
-                             cond_embedding_size, sig_min)
+                             cond_embedding_size)
     return model
 
 

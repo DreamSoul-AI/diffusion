@@ -5,11 +5,11 @@ control:
   model_name: mlp
   model_mode: flow
   formulation_mode: ot
-  class_cond: 1
+  class_cond: 0
 # generate
 generate:
   num_steps: 100
-  guidance_scale: 2.
+  guidance_scale: 1.
   eta: 1.
 # experiment
 pin_memory: True

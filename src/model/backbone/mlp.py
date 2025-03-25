@@ -19,13 +19,14 @@ class MLP(nn.Module):
         self.blocks = nn.Sequential(*blocks)
         self.output_proj = nn.Linear(input_size, math.prod(data_size))
 
-    def feature(self, x, timestep_embedding, cond_embedding=None):
+    def feature(self, x, timestep_embedding=None, cond_embedding=None):
         size = x.size()
         x = x.reshape(x.size(0), -1)
-        if cond_embedding is None:
-            x = torch.cat([x, timestep_embedding], dim=-1)
-        else:
-            x = torch.cat([x, timestep_embedding, cond_embedding], dim=-1)
+        if timestep_embedding is not None:
+            x = torch.cat([x, timestep_embedding], dim=1)
+        if cond_embedding is not None:
+            cond_embedding = expand_to_planes(cond_embedding, x.shape)
+            x = torch.cat([x, cond_embedding], dim=1)
         x = self.blocks(x)
         return x, size
 
