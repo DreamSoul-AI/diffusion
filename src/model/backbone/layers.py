@@ -8,6 +8,8 @@ class Activation(nn.Module):
         super().__init__()
         if activation == 'relu':
             activation = nn.ReLU(inplace=inplace)
+        elif activation == 'tanh':
+            activation = nn.Tanh()
         elif activation == 'sigmoid':
             activation = nn.Sigmoid()
         elif activation == 'silu':

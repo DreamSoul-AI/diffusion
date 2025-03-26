@@ -20,5 +20,3 @@ log_interval: 0.25
 device: cuda
 resume_mode: 0
 profile: False
-mu: 0.1
-lambda: 0.01

@@ -22,7 +22,7 @@ def process_control():
     cfg['model']['formulation_mode'] = cfg['formulation_mode']
     cfg['model']['unet'] = {'hidden_size': 64}
     if cfg['data_name'] in ['TwoMoons']:
-        cfg['model']['mlp'] = {'hidden_size': [64, 64, 64], 'activation': 'elu'}
+        cfg['model']['mlp'] = {'hidden_size': [64, 64, 64], 'activation': 'relu'}
     else:
         cfg['model']['mlp'] = {'hidden_size': [128, 256], 'activation': 'relu'}
 
@@ -31,9 +31,9 @@ def process_control():
     # https://github.com/facebookresearch/flow_matching/blob/47c439602a360ef7d2ec2b9a521b4dda5f335112/examples/image/models/nn.py#L107
     cfg['model']['timestep_embedding_mode'] = 'identity'
     # cfg['model']['timestep_embedding_mode'] = 'fourier'
-    # cfg['model']['timestep_embedding_size'] = 1
+    cfg['model']['timestep_embedding_size'] = 1
     # cfg['model']['timestep_embedding_size'] = 16
-    cfg['model']['timestep_embedding_size'] = 0
+    # cfg['model']['timestep_embedding_size'] = 0
     if cfg['class_cond'] > 0:
         class_dropout = 0.2
         cfg['model']['cond_embedding_size'] = 1
@@ -60,8 +60,9 @@ def process_control():
                                            'test': cfg[tag]['optimizer']['test_batch_ratio'] * cfg['batch_size']}
     cfg[tag]['optimizer']['step_period'] = cfg['step_period']
     cfg[tag]['optimizer']['num_steps'] = cfg['num_steps']
-    cfg[tag]['optimizer']['scheduler_name'] = 'LinearAnnealingLR'
+    cfg[tag]['optimizer']['scheduler_name'] = 'CosineAnnealingLR'
     # cfg[tag]['optimizer']['scheduler_name'] = 'None'
+    cfg[tag]['optimizer']['min_lr'] = 1e-5
     cfg[tag]['optimizer']['warmup_ratio'] = 0
 
     cfg['generate']['model_mode'] = cfg['model_mode']

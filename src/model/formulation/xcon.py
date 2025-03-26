@@ -2,8 +2,8 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 from .diffusion import get_alphas_sigmas
-from ..backbone import expand_to_planes, FourierFeatures
-import lpips
+# from ..backbone import expand_to_planes, FourierFeatures
+# import lpips
 from config import cfg
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')

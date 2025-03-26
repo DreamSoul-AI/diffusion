@@ -1,5 +1,5 @@
 from .layers import *
-
+from ..model import init_param
 
 class MLP(nn.Module):
     def __init__(self, data_size, hidden_size, activation, timestep_embedding_size, cond_embedding_size):
@@ -48,5 +48,5 @@ def mlp(cfg):
     timestep_embedding_size = cfg['timestep_embedding_size']
     cond_embedding_size = cfg['cond_embedding_size']
     model = MLP(data_size, hidden_size, activation, timestep_embedding_size, cond_embedding_size)
-    # model.apply(init_param)
+    model.apply(init_param)
     return model
