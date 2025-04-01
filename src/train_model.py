@@ -62,25 +62,25 @@ def runExperiment():
         scheduler.load_state_dict(result['scheduler'])
         logger.load_state_dict(result['logger'])
         logger.reset()
-    scaler = torch.cuda.amp.GradScaler() if cfg['gradient_scaler'] else None
     data_loader = make_data_loader(dataset, cfg[cfg['tag']]['optimizer']['batch_size'], cfg['num_steps'],
                                    cfg['step'], cfg['step_period'], cfg['pin_memory'], cfg['num_workers'],
                                    cfg['collate_mode'], cfg['seed'])
     data_iterator = enumerate(data_loader['train'])
     while cfg['step'] < cfg['num_steps']:
-        train(data_iterator, model, optimizer, scaler, scheduler, logger)
+        train(data_iterator, model, optimizer, scheduler, logger)
         test(data_loader['test'], model, logger)
-        result = {'cfg': cfg, 'model': model.state_dict(),
-                  'optimizer': optimizer.state_dict(), 'scheduler': scheduler.state_dict(),
-                  'logger': logger.state_dict()}
-        check(result, cfg['checkpoint_path'])
-        if logger.compare('test'):
-            shutil.copytree(cfg['checkpoint_path'], cfg['best_path'], dirs_exist_ok=True)
+        if cfg['save_checkpoint'] or (not cfg['save_checkpoint'] and cfg['step'] >= cfg['num_steps']):
+            result = {'cfg': cfg, 'model': model.state_dict(),
+                      'optimizer': optimizer.state_dict(), 'scheduler': scheduler.state_dict(),
+                      'logger': logger.state_dict()}
+            check(result, cfg['checkpoint_path'])
+            if logger.compare('test'):
+                shutil.copytree(cfg['checkpoint_path'], cfg['best_path'], dirs_exist_ok=True)
         logger.reset()
     return
 
 
-def train(data_loader, model, optimizer, scaler, scheduler, logger):
+def train(data_loader, model, optimizer, scheduler, logger):
     model.train(True)
     start_time = time.time()
     with logger.profiler:
@@ -91,16 +91,9 @@ def train(data_loader, model, optimizer, scaler, scheduler, logger):
             input = to_device(input, cfg['device'])
             output = model(input)
             loss = output['loss']
-            if scaler is not None:
-                scaler.scale(loss).backward()
-            else:
-                loss.backward()
+            loss.backward()
             if (i + 1) % cfg['step_period'] == 0:
-                if scaler is not None:
-                    scaler.step(optimizer)
-                    scaler.update()
-                else:
-                    optimizer.step()
+                optimizer.step()
                 scheduler.step()
                 optimizer.zero_grad()
             evaluation = logger.evaluate('train', 'batch', input, output)

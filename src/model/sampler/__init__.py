@@ -1,1 +1,2 @@
-from .sampler import Sampler
+from .diffusion import DiffusionSampler
+from .flow import FlowSampler

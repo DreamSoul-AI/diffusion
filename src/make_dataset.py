@@ -9,14 +9,17 @@ if __name__ == "__main__":
     stats_path = os.path.join('output', 'stats')
     dim = 1
     # data_names = ['MNIST', 'FashionMNIST', 'SVHN', 'CIFAR10', 'CIFAR100']
-    data_names = ['MNIST', 'CIFAR10']
+    # data_names = ['MNIST', 'CIFAR10']
+    data_names = ['TwoMoons']
     cfg['seed'] = 0
     cfg['tag'] = 'make_dataset'
+    # TODO: add remake dataset process check here
     process_control()
     with torch.no_grad():
         for data_name in data_names:
             dataset = make_dataset(data_name)
-            dataset['train'].transform = Compose([transforms.ToTensor()])
+            if data_name not in ['TwoMoons']:
+                dataset['train'].transform = Compose([transforms.ToTensor()])
             process_dataset(dataset)
             cfg['step'] = 0
             data_loader = make_data_loader(dataset, cfg[cfg['tag']]['optimizer']['batch_size'], shuffle=False)

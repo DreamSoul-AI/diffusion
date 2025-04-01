@@ -3,6 +3,31 @@ import torch.nn as nn
 import math
 
 
+class Activation(nn.Module):
+    def __init__(self, activation='relu', inplace=False):
+        super().__init__()
+        if activation == 'relu':
+            activation = nn.ReLU(inplace=inplace)
+        elif activation == 'tanh':
+            activation = nn.Tanh()
+        elif activation == 'sigmoid':
+            activation = nn.Sigmoid()
+        elif activation == 'silu':
+            activation = nn.SiLU()
+        elif activation == 'elu':
+            activation = nn.ELU()
+        elif activation == 'gelu':
+            activation = nn.GELU()
+        elif activation == 'none':
+            activation = nn.Identity()
+        else:
+            raise ValueError('Not valid activation')
+        self.activation = activation
+
+    def forward(self, x):
+        return self.activation(x)
+
+
 class ResidualBlock(nn.Module):
     def __init__(self, main, skip=None):
         super().__init__()
@@ -57,20 +82,6 @@ class SkipBlock(nn.Module):
         return torch.cat([self.main(input), self.skip(input)], dim=1)
 
 
-class FourierFeatures(nn.Module):
-    def __init__(self, in_features, out_features, std=1.):
-        super().__init__()
-        assert out_features % 2 == 0
-        self.weight = nn.Parameter(torch.randn([out_features // 2, in_features]) * std)
-
-    def forward(self, input):
-        f = 2 * math.pi * input @ self.weight.T
-        return torch.cat([f.cos(), f.sin()], dim=-1)
-
-
-# def expand_to_planes(input, shape):
-#     return input[..., None, None].repeat([1, 1, shape[2], shape[3]])
-
 def expand_to_planes(input, shape, repeat_batch=False):
     """
     Expand input to match the spatial dimensions of shape.
@@ -87,4 +98,5 @@ def expand_to_planes(input, shape, repeat_batch=False):
         input = input[:, :, None, None]  # Add spatial dimensions: [batch_size, channels, 1, 1]
 
     # Repeat spatial dimensions to match the target shape (height and width)
-    return input.expand(-1, -1, shape[2], shape[3])
+    output = input.expand(-1, -1, shape[2], shape[3])
+    return output

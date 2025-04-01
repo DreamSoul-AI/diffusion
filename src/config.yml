@@ -1,17 +1,19 @@
 ---
 # control
 control:
-  data_name: MNIST
-  model_name: base
-  formulation_mode: v
+  data_name: TwoMoons
+  model_name: mlp
+  model_mode: flow
+  formulation_mode: ot
+  class_cond: 0
 # generate
 generate:
   num_steps: 100
-  guidance_scale: 2.
+  guidance_scale: 1.
   eta: 1.
 # experiment
 pin_memory: True
-num_workers: 2
+num_workers: 0
 init_seed: 0
 num_experiments: 1
 log_interval: 0.25

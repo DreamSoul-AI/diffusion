@@ -9,8 +9,25 @@ from transformers import get_linear_schedule_with_warmup
 def make_model(cfg):
     backbone = eval('model.{}(cfg)'.format(cfg['model_name']))
     formulation = eval('model.{}(backbone, cfg)'.format(cfg['formulation_mode']))
-    model_ = model.diffusion(formulation, cfg)
+    if cfg['model_mode'] == 'diffusion':
+        model_ = model.formulation.diffusion(formulation, cfg)
+    elif cfg['model_mode'] == 'flow':
+        model_ = model.formulation.flow(formulation, cfg)
+    else:
+        raise ValueError('Not valid model mode')
     return model_
+
+
+def make_sampler(cfg):
+    num_steps = cfg['num_steps']
+    guidance_scale = cfg['guidance_scale']
+    eta = cfg['eta']
+    normalize = cfg['normalize']
+    if cfg['model_mode'] == 'diffusion':
+        sampler = model.sampler.DiffusionSampler(num_steps, guidance_scale, eta, normalize)
+    else:
+        sampler = model.sampler.FlowSampler(num_steps, guidance_scale, eta, normalize)
+    return sampler
 
 
 def make_loss(output, input):
@@ -96,7 +113,7 @@ def make_scheduler(optimizer, cfg):
         scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.99)
     elif cfg['scheduler_name'] == 'CosineAnnealingLR':
         scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=cfg['num_steps'],
-                                                         eta_min=0)
+                                                         eta_min=cfg['min_lr'])
     elif cfg['scheduler_name'] == 'ReduceLROnPlateau':
         scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=cfg['factor'],
                                                          patience=cfg['patience'], verbose=False,

@@ -17,6 +17,13 @@ def make_metric(split, **kwargs):
                 metric_name[k].extend(['Loss'])
             else:
                 metric_name[k].extend(['FID'])
+    elif data_name in ['TwoMoons']:
+        best = float('inf')
+        best_direction = 'down'
+        best_metric_name = 'Loss'
+        for k in metric_name:
+            metric_name[k].extend(['Loss'])
+
     else:
         raise ValueError('Not valid data name')
     metric = Metric(metric_name, best, best_direction, best_metric_name)

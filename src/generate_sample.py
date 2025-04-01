@@ -2,8 +2,10 @@ import argparse
 import os
 import torch
 import torch.backends.cudnn as cudnn
+from matplotlib import pyplot as plt
+
 from config import cfg, process_args
-from model import make_model, Sampler
+from model import make_model, make_sampler
 from dataset import make_dataset, process_dataset
 from module import resume, process_control, makedir_exist_ok
 from torchvision.utils import save_image
@@ -52,10 +54,9 @@ def runExperiment():
 
 
 def generate(model):
-    sampler = Sampler(cfg['generate']['num_steps'], cfg['generate']['guidance_scale'], cfg['generate']['eta'],
-                      cfg['generate']['normalize'])
-    if cfg['data_name'] in ['MNIST', 'CIFAR10']:
-        size = (cfg['generate']['batch_size'] * cfg['model']['target_size'], *cfg['model']['data_shape'])
+    sampler = make_sampler(cfg['generate'])
+    if cfg['data_name'] in ['MNIST', 'CIFAR10', 'TwoMoons']:
+        size = (cfg['generate']['batch_size'] * cfg['model']['target_size'], *cfg['model']['data_size'])
         noise = torch.randn(size).to(cfg['device'])
         classes = torch.arange(cfg['model']['target_size'], device=cfg['device']).repeat(
             cfg['generate']['batch_size'])
@@ -64,8 +65,18 @@ def generate(model):
     samples = sampler.sample(noise, model, classes)
 
     makedir_exist_ok(os.path.join(cfg['sample_path']))
-    save_image(samples, os.path.join(cfg['sample_path'], 'sample.{}'.format(cfg['generate']['img_fmt'])),
-               nrow=cfg['model']['target_size'])
+    sample_path = os.path.join(cfg['sample_path'], 'sample.{}'.format(cfg['generate']['img_fmt']))
+    if cfg['data_name'] in ['TwoMoons']:
+        samples = samples.detach().cpu().numpy()
+        fig, axes = plt.subplots()
+        axes.scatter(samples[:, 0], samples[:, 1], s=10)
+        axes.set_xlim(-3.0, 3.0)
+        axes.set_ylim(-3.0, 3.0)
+        plt.tight_layout()
+        plt.savefig(sample_path, dpi=300, bbox_inches='tight')
+        plt.close(fig)
+    else:
+        save_image(samples, sample_path, nrow=cfg['model']['target_size'])
     return samples
 
 
