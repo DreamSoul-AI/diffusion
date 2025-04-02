@@ -12,7 +12,7 @@ def process_control():
     cfg['step_period'] = 1
     cfg['num_steps'] = None
     cfg['eval_period'] = 100
-    cfg['num_epochs'] = 1000
+    cfg['num_epochs'] = 10
     cfg['collate_mode'] = 'dict'
     cfg['save_checkpoint'] = True
 
@@ -50,7 +50,7 @@ def process_control():
     cfg[tag] = {}
     cfg[tag]['optimizer'] = {}
     cfg[tag]['optimizer']['optimizer_name'] = 'AdamW'
-    cfg[tag]['optimizer']['lr'] = 1e-2
+    cfg[tag]['optimizer']['lr'] = 1e-3
     cfg[tag]['optimizer']['momentum'] = 0.9
     cfg[tag]['optimizer']['betas'] = (0.9, 0.999)
     cfg[tag]['optimizer']['weight_decay'] = 1e-4

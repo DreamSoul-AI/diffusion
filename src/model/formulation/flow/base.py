@@ -87,7 +87,6 @@ def ot(backbone, cfg):
     timestep_embedding_size = cfg['timestep_embedding_size']
     timestep_embedding_mode = cfg['timestep_embedding_mode']
     cond_embedding_size = cfg['cond_embedding_size']
-    # sig_min = cfg['flow']['sig_min'] # TODO: remove this
     model = OptimalTransport(backbone, target_size, class_dropout, timestep_embedding_size, timestep_embedding_mode,
                              cond_embedding_size)
     return model

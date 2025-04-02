@@ -1,8 +1,8 @@
 ---
 # control
 control:
-  data_name: TwoMoons
-  model_name: mlp
+  data_name: MNIST
+  model_name: unet
   model_mode: flow
   formulation_mode: ot
   class_cond: 0
