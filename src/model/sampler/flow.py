@@ -28,7 +28,6 @@ class FlowSampler:
     def _sample(self, mode, z, model, classes=None):
         """Draws samples from a model given starting noise for the Epsilon objective."""
         model.train(False)
-        ts = z.new_ones([z.shape[0]])
 
         # Define timesteps and compute alphas and sigmas based on the schedule
         if mode == 'ot':
@@ -38,12 +37,12 @@ class FlowSampler:
 
         for i in tqdm(range(self.num_steps)):
             if model.core.is_cond and self.guidance_scale > 1:
-                x_0 = torch.cat([z, z])  # Duplicate input for unconditional and conditional
-                ts = t[i].repeat(x_0.shape[0])
+                z_ = torch.cat([z, z])  # Duplicate input for unconditional and conditional
+                ts = t[i].repeat(z_.shape[0])
                 cond = torch.cat([-torch.ones_like(classes), classes])  # Classifier-free guidance
-                uncond, cond = model.core.forward_diffusion_pass(x_0, ts, cond=cond).float().chunk(2)
+                uncond, cond = model.core.forward_diffusion_pass(z_, ts, cond=cond).float().chunk(2)
                 pred = uncond + self.guidance_scale * (cond - uncond)
-                z += pred * 1 / self.num_steps
+                z += pred * 1 / self.num_steps  # TODO: improve this
             else:
                 ts = t[i].repeat(z.shape[0])
                 cond = -z.new_ones((z.size(0),), dtype=torch.long)

@@ -1,5 +1,5 @@
 from model.model import *
-from model.backbone import TimeEmbedding
+from model.backbone import TimeEmbedding, ConditionEmbedding
 
 
 class Base(nn.Module):
@@ -9,32 +9,38 @@ class Base(nn.Module):
         self.backbone = backbone
         self.target_size = target_size
         self.class_dropout = class_dropout
-        self.timestep_embedding = TimeEmbedding(timestep_embedding_size, timestep_embedding_mode)
-        if cond_embedding_size > 0:
-            self.cond_embedding = nn.Embedding(self.target_size + 1, cond_embedding_size)
-            self.is_cond = True
-        else:
-            self.cond_embedding = None
-            self.is_cond = False
+        self.time_embedding = TimeEmbedding(timestep_embedding_size, timestep_embedding_mode)
+        self.cond_embedding = ConditionEmbedding(self.target_size + 1, cond_embedding_size)
+        # if cond_embedding_size > 0:
+        #     self.cond_embedding = nn.Embedding(self.target_size + 1, cond_embedding_size)
+        #     self.is_cond = True
+        # else:
+        #     self.cond_embedding = None
+        #     self.is_cond = False
+
+    @property
+    def is_time(self):
+        return self.time_embedding.is_time
+
+    @property
+    def is_cond(self):
+        return self.cond_embedding.is_cond
 
     def forward_diffusion_pass(self, z, t, cond=None):
-        timestep_embedding = self.timestep_embedding(t)
-        if self.cond_embedding is not None and cond is not None: # TODO: wrap this
-            cond_embedding = self.cond_embedding(cond + 1)
-        else:
-            cond_embedding = None
-        pred = self.backbone(z, timestep_embedding, cond_embedding)
+        time_embedding = self.time_embedding(t)
+        cond_embedding = self.cond_embedding(cond)
+        # if self.cond_embedding is not None and cond is not None:
+        #     cond_embedding = self.cond_embedding(cond + 1)
+        # else:
+        #     cond_embedding = None
+        pred = self.backbone(z, time_embedding, cond_embedding)
         # pred = z + pred # add residual
         return pred
 
-    def make_noise(self, x_1):
-        noise = torch.randn_like(x_1)
-        return noise
-
-    def make_noised_reals(self, x_1, noise, t):
+    def make_noised_reals(self, x_0, noise, t):
         raise NotImplementedError
 
-    def make_targets(self, x_1, noise, t):
+    def make_targets(self, x_0, noise, t):
         raise NotImplementedError
 
     def make_cond(self, classes):
@@ -48,9 +54,10 @@ class Base(nn.Module):
 
     def forward(self, z, t, cond, training=True):
         if training:
-            noise = self.make_noise(z)
-            noised_reals = self.make_noised_reals(z, noise, t)
-            targets = self.make_targets(z, noise, t)
+            x_0 = z
+            noise = self.make_noise(x_0)
+            noised_reals = self.make_noised_reals(x_0, noise, t)
+            targets = self.make_targets(x_0, noise, t)
             cond = self.make_cond(cond)
             predicted = self.forward_diffusion_pass(noised_reals, t, cond)
             loss = F.mse_loss(predicted, targets)
@@ -67,17 +74,20 @@ class OptimalTransport(Base):
                          cond_embedding_size)
         # self.sig_min = sig_min
 
-    def make_noised_reals(self, x_1, noise, t):
+    def make_noise(self, x):
+        noise = torch.randn_like(x)
+        return noise
+
+    def make_noised_reals(self, x_0, noise, t):
         # psi_t
         """ Conditional Flow
         """
-        t = t.view(t.size(0), *[1 for _ in range(len(x_1.shape[1:]))]) # TODO: revert time 0 - > 1
         # return (1 - (1 - self.sig_min) * t) * noise + t * x_0
-        # return (1 - (1 - self.sig_min) * t) * noise + t * x_1
-        return (1 - t) * noise + t * x_1
+        t = t.view(t.size(0), *[1 for _ in range(len(x_0.shape[1:]))])
+        return (1 - t) * noise + t * x_0
 
-    def make_targets(self, x_1, noise, t):
-        targets = x_1 - noise
+    def make_targets(self, x_0, noise, t):
+        targets = x_0 - noise
         return targets
 
 

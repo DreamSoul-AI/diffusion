@@ -19,7 +19,7 @@ class Base(nn.Module):
             self.is_cond = False
 
     def forward_diffusion_pass(self, z, t, cond=None):
-        timestep_embedding = self.timestep_embedding(t[:, None]) # TODO: adapt this None
+        timestep_embedding = self.timestep_embedding(t[:, None])
         if self.cond_embedding is not None and cond is not None:
             cond_embedding = self.cond_embedding(cond + 1)
         else:
