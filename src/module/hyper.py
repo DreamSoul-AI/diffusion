@@ -29,10 +29,10 @@ def process_control():
     # TODO: improve time embedding
     # https://github.com/facebookresearch/flow_matching/tree/main/examples/image
     # https://github.com/facebookresearch/flow_matching/blob/47c439602a360ef7d2ec2b9a521b4dda5f335112/examples/image/models/nn.py#L107
-    cfg['model']['timestep_embedding_mode'] = 'identity'
-    # cfg['model']['timestep_embedding_mode'] = 'fourier'
-    cfg['model']['timestep_embedding_size'] = 1
-    # cfg['model']['timestep_embedding_size'] = 16
+    # cfg['model']['timestep_embedding_mode'] = 'identity'
+    cfg['model']['timestep_embedding_mode'] = 'fourier'
+    # cfg['model']['timestep_embedding_size'] = 1
+    cfg['model']['timestep_embedding_size'] = 16
     # cfg['model']['timestep_embedding_size'] = 0
     if cfg['class_cond'] > 0:
         class_dropout = 0.2
