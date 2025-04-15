@@ -1,6 +1,6 @@
 import torch
 from tqdm import tqdm
-from model import OptimalTransport
+from model import OptimalTransport, VariancePreserve, VarianceExplode
 
 
 class FlowSampler:
@@ -18,6 +18,10 @@ class FlowSampler:
     def sample(self, noise, model, classes=None):
         if isinstance(model.core, OptimalTransport):
             samples = self._sample('ot', noise, model, classes)
+        elif isinstance(model.core, VariancePreserve):
+            samples = self._sample('vp', noise, model, classes)
+        elif isinstance(model.core, VarianceExplode):
+            samples = self._sample('ve', noise, model, classes)
         else:
             raise ValueError('Not valid model')
         if self.normalize:
@@ -30,7 +34,7 @@ class FlowSampler:
         model.train(False)
 
         # Define timesteps and compute alphas and sigmas based on the schedule
-        if mode == 'ot':
+        if mode in ['ot', 'vp', 've']:
             t = torch.linspace(0, 1, self.num_steps + 1, device=z.device)
         else:
             raise ValueError('Not valid mode')
@@ -42,7 +46,7 @@ class FlowSampler:
                 cond = torch.cat([-torch.ones_like(classes), classes])  # Classifier-free guidance
                 uncond, cond = model.core.forward_diffusion_pass(z_, ts, cond=cond).float().chunk(2)
                 pred = uncond + self.guidance_scale * (cond - uncond)
-                z += pred * 1 / self.num_steps  # TODO: improve this
+                z += pred * 1 / self.num_steps
             else:
                 ts = t[i].repeat(z.shape[0])
                 cond = -z.new_ones((z.size(0),), dtype=torch.long)

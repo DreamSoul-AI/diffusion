@@ -12,7 +12,10 @@ def process_control():
     cfg['step_period'] = 1
     cfg['num_steps'] = None
     cfg['eval_period'] = 100
-    cfg['num_epochs'] = 10
+    if cfg['data_name'] in ['TwoMoons']:
+        cfg['num_epochs'] = 1000
+    else:
+        cfg['num_epochs'] = 10
     cfg['collate_mode'] = 'dict'
     cfg['save_checkpoint'] = True
 
