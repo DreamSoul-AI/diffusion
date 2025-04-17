@@ -12,7 +12,10 @@ def process_control():
     cfg['step_period'] = 1
     cfg['num_steps'] = None
     cfg['eval_period'] = 100
-    cfg['num_epochs'] = 1000
+    if cfg['data_name'] in ['TwoMoons']:
+        cfg['num_epochs'] = 1000
+    else:
+        cfg['num_epochs'] = 10
     cfg['collate_mode'] = 'dict'
     cfg['save_checkpoint'] = True
 
@@ -29,10 +32,10 @@ def process_control():
     # TODO: improve time embedding
     # https://github.com/facebookresearch/flow_matching/tree/main/examples/image
     # https://github.com/facebookresearch/flow_matching/blob/47c439602a360ef7d2ec2b9a521b4dda5f335112/examples/image/models/nn.py#L107
-    cfg['model']['timestep_embedding_mode'] = 'identity'
-    # cfg['model']['timestep_embedding_mode'] = 'fourier'
-    cfg['model']['timestep_embedding_size'] = 1
-    # cfg['model']['timestep_embedding_size'] = 16
+    # cfg['model']['timestep_embedding_mode'] = 'identity'
+    cfg['model']['timestep_embedding_mode'] = 'fourier'
+    # cfg['model']['timestep_embedding_size'] = 1
+    cfg['model']['timestep_embedding_size'] = 16
     # cfg['model']['timestep_embedding_size'] = 0
     if cfg['class_cond'] > 0:
         class_dropout = 0.2
@@ -50,7 +53,7 @@ def process_control():
     cfg[tag] = {}
     cfg[tag]['optimizer'] = {}
     cfg[tag]['optimizer']['optimizer_name'] = 'AdamW'
-    cfg[tag]['optimizer']['lr'] = 1e-2
+    cfg[tag]['optimizer']['lr'] = 1e-3
     cfg[tag]['optimizer']['momentum'] = 0.9
     cfg[tag]['optimizer']['betas'] = (0.9, 0.999)
     cfg[tag]['optimizer']['weight_decay'] = 1e-4

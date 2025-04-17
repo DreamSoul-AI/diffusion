@@ -1,6 +1,7 @@
 from .layers import *
 from ..model import init_param
 
+
 class MLP(nn.Module):
     def __init__(self, data_size, hidden_size, activation, timestep_embedding_size, cond_embedding_size):
         super().__init__()

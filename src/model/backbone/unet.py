@@ -50,7 +50,8 @@ class UNet(nn.Module):
         )
 
     def forward(self, x, timestep_embedding=None, cond_embedding=None):
-        if timestep_embedding is not None: # TODO: Wrap outside
+        if timestep_embedding is not None:
+            timestep_embedding = expand_to_planes(timestep_embedding, x.size())
             x = torch.cat([x, timestep_embedding], dim=1)
         if cond_embedding is not None:
             cond_embedding = expand_to_planes(cond_embedding, x.shape)

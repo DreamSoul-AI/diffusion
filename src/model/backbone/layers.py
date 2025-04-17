@@ -94,9 +94,12 @@ def expand_to_planes(input, shape, repeat_batch=False):
         input = input.expand(shape[0], -1)
 
     # Add spatial dimensions and repeat as necessary to match `shape`
-    if input.dim() == 2:  # Assuming input is [batch_size, channels]
+    if input.dim() == 2 and len(shape) == 4:  # Assuming input is [batch_size, channels]
         input = input[:, :, None, None]  # Add spatial dimensions: [batch_size, channels, 1, 1]
 
     # Repeat spatial dimensions to match the target shape (height and width)
-    output = input.expand(-1, -1, shape[2], shape[3])
+    if len(shape) == 4:
+        output = input.expand(-1, -1, shape[2], shape[3])
+    else:
+        output = input
     return output

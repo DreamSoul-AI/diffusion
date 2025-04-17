@@ -4,12 +4,12 @@ control:
   data_name: TwoMoons
   model_name: mlp
   model_mode: flow
-  formulation_mode: ot
+  formulation_mode: vp
   class_cond: 0
 # generate
 generate:
   num_steps: 100
-  guidance_scale: 1.
+  guidance_scale: 2.
   eta: 1.
 # experiment
 pin_memory: True

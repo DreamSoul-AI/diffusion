@@ -13,7 +13,6 @@ if __name__ == "__main__":
     data_names = ['TwoMoons']
     cfg['seed'] = 0
     cfg['tag'] = 'make_dataset'
-    # TODO: add remake dataset process check here
     process_control()
     with torch.no_grad():
         for data_name in data_names:
