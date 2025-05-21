@@ -2,15 +2,17 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 from ..utils import get_alphas_sigmas
+from model.backbone import TimeEmbedding
 
 
 class Base(nn.Module):
-    def __init__(self, backbone, target_size, class_dropout, timestep_embedding_size, cond_embedding_size):
+    def __init__(self, backbone, target_size, class_dropout, timestep_embedding_size, timestep_embedding_mode,
+                 cond_embedding_size):
         super().__init__()
         self.backbone = backbone
         self.target_size = target_size
         self.class_dropout = class_dropout
-        self.timestep_embedding = FourierFeatures(1, timestep_embedding_size)
+        self.timestep_embedding = TimeEmbedding(timestep_embedding_size, timestep_embedding_mode)
         if cond_embedding_size > 0:
             self.cond_embedding = nn.Embedding(self.target_size + 1, cond_embedding_size)
             self.is_cond = True
@@ -67,8 +69,10 @@ class Base(nn.Module):
 
 
 class Eps(Base):
-    def __init__(self, backbone, target_size, class_dropout, timestep_embedding_size, cond_embedding_size):
-        super().__init__(backbone, target_size, class_dropout, timestep_embedding_size, cond_embedding_size)
+    def __init__(self, backbone, target_size, class_dropout, timestep_embedding_size, timestep_embedding_mode,
+                 cond_embedding_size):
+        super().__init__(backbone, target_size, class_dropout, timestep_embedding_size, timestep_embedding_mode,
+                         cond_embedding_size)
 
     def make_targets(self, x_0, noise, t):
         targets = noise
@@ -85,8 +89,10 @@ class X(Base):
 
 
 class V(Base):
-    def __init__(self, backbone, target_size, class_dropout, timestep_embedding_size, cond_embedding_size):
-        super().__init__(backbone, target_size, class_dropout, timestep_embedding_size, cond_embedding_size)
+    def __init__(self, backbone, target_size, class_dropout, timestep_embedding_size, timestep_embedding_mode,
+                 cond_embedding_size):
+        super().__init__(backbone, target_size, class_dropout, timestep_embedding_size, timestep_embedding_mode,
+                         cond_embedding_size)
 
     def make_targets(self, x_0, noise, t):
         alphas, sigmas = get_alphas_sigmas(t)
@@ -97,10 +103,10 @@ class V(Base):
 
 
 class Regularized(Base):
-    def __init__(self, backbone, target_size, class_dropout, timestep_embedding_size,
+    def __init__(self, backbone, target_size, class_dropout, timestep_embedding_size, timestep_embedding_mode,
                  cond_embedding_size, regularization):
         super().__init__(backbone, target_size, class_dropout, timestep_embedding_size,
-                         cond_embedding_size)
+                         timestep_embedding_mode, cond_embedding_size)
         self.lambda_v = regularization['v']
         self.lambda_x0 = regularization['x0']
         self.lambda_eps = regularization['eps']
@@ -145,8 +151,10 @@ def eps(backbone, cfg):
     target_size = cfg['target_size']
     class_dropout = cfg['diffusion']['class_dropout']
     timestep_embedding_size = cfg['timestep_embedding_size']
+    timestep_embedding_mode = cfg['timestep_embedding_mode']
     cond_embedding_size = cfg['cond_embedding_size']
-    model = Eps(backbone, target_size, class_dropout, timestep_embedding_size, cond_embedding_size)
+    model = Eps(backbone, target_size, class_dropout, timestep_embedding_size, timestep_embedding_mode,
+                cond_embedding_size)
     return model
 
 
@@ -154,8 +162,10 @@ def x(backbone, cfg):
     target_size = cfg['target_size']
     class_dropout = cfg['diffusion']['class_dropout']
     timestep_embedding_size = cfg['timestep_embedding_size']
+    timestep_embedding_mode = cfg['timestep_embedding_mode']
     cond_embedding_size = cfg['cond_embedding_size']
-    model = X(backbone, target_size, class_dropout, timestep_embedding_size, cond_embedding_size)
+    model = X(backbone, target_size, class_dropout, timestep_embedding_size, timestep_embedding_mode,
+              cond_embedding_size)
     return model
 
 
@@ -163,8 +173,10 @@ def v(backbone, cfg):
     target_size = cfg['target_size']
     class_dropout = cfg['diffusion']['class_dropout']
     timestep_embedding_size = cfg['timestep_embedding_size']
+    timestep_embedding_mode = cfg['timestep_embedding_mode']
     cond_embedding_size = cfg['cond_embedding_size']
-    model = V(backbone, target_size, class_dropout, timestep_embedding_size, cond_embedding_size)
+    model = V(backbone, target_size, class_dropout, timestep_embedding_size, timestep_embedding_mode,
+              cond_embedding_size)
     return model
 
 
@@ -173,7 +185,9 @@ def regularized(backbone, cfg):
     class_dropout = cfg['diffusion']['class_dropout']
     regularization = cfg['diffusion']['regularization']
     timestep_embedding_size = cfg['timestep_embedding_size']
+    timestep_embedding_mode = cfg['timestep_embedding_mode']
     cond_embedding_size = cfg['cond_embedding_size']
-    model = Regularized(backbone, target_size, class_dropout, timestep_embedding_size, cond_embedding_size,
+    model = Regularized(backbone, target_size, class_dropout, timestep_embedding_size, timestep_embedding_mode,
+                        cond_embedding_size,
                         regularization)
     return model
