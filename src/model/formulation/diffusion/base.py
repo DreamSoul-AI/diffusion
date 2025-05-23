@@ -12,7 +12,7 @@ class Base(nn.Module):
         self.backbone = backbone
         self.target_size = target_size
         self.class_dropout = class_dropout
-        self.timestep_embedding = TimeEmbedding(timestep_embedding_size, timestep_embedding_mode)
+        self.time_embedding = TimeEmbedding(timestep_embedding_size, timestep_embedding_mode)
         if cond_embedding_size > 0:
             self.cond_embedding = nn.Embedding(self.target_size + 1, cond_embedding_size)
             self.is_cond = True
@@ -21,12 +21,12 @@ class Base(nn.Module):
             self.is_cond = False
 
     def forward_diffusion_pass(self, z, t, cond=None):
-        timestep_embedding = self.timestep_embedding(t[:, None])
+        time_embedding = self.time_embedding(t[:, None])
         if self.cond_embedding is not None and cond is not None:
             cond_embedding = self.cond_embedding(cond + 1)
         else:
             cond_embedding = None
-        pred = self.backbone(z, timestep_embedding, cond_embedding)
+        pred = self.backbone(z, time_embedding, cond_embedding)
         return pred
 
     def make_noise(self, x_0):

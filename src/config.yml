@@ -3,8 +3,8 @@
 control:
   data_name: TwoMoons
   model_name: mlp
-  model_mode: diffusion
-  formulation_mode: v
+  model_mode: flow
+  formulation_mode: vp
   class_cond: 0
 # generate
 generate:
