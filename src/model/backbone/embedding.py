@@ -45,10 +45,10 @@ class FourierEmbedding(nn.Module):
 
 
 class TimeEmbedding(nn.Module):
-    def __init__(self, embedding_size, embedding_mode):
+    def __init__(self, embedding_mode, embedding_size):
         super().__init__()
-        self.embedding_size = embedding_size
         self.embedding_mode = embedding_mode
+        self.embedding_size = embedding_size
         if self.embedding_size > 0:
             if embedding_mode == 'identity':
                 self.time_embedding = IdentityEmbedding(self.embedding_size)

@@ -1,8 +1,6 @@
-import math
 from model.model import *
 
 
-# TODO: seems the same as diffusion, let ot inherit this
 class Flow(nn.Module):
 
     def __init__(self, core):
@@ -28,5 +26,4 @@ class Flow(nn.Module):
 
 def flow(core, cfg):
     model = Flow(core)
-    # model.apply(init_param)
     return model

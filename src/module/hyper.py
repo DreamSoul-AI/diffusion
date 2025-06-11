@@ -6,7 +6,8 @@ def process_control():
     cfg['model_name'] = cfg['control']['model_name']
     cfg['model_mode'] = cfg['control']['model_mode']
     cfg['formulation_mode'] = cfg['control']['formulation_mode']
-    cfg['class_cond'] = cfg['control']['class_cond']
+    cfg['is_time'] = cfg['control']['is_time']
+    cfg['is_cond'] = cfg['control']['is_cond']
 
     cfg['batch_size'] = 256
     cfg['step_period'] = 1
@@ -29,15 +30,19 @@ def process_control():
     else:
         cfg['model']['mlp'] = {'hidden_size': [128, 256], 'activation': 'relu'}
 
-    # TODO: improve time embedding
     # https://github.com/facebookresearch/flow_matching/tree/main/examples/image
     # https://github.com/facebookresearch/flow_matching/blob/47c439602a360ef7d2ec2b9a521b4dda5f335112/examples/image/models/nn.py#L107
-    # cfg['model']['timestep_embedding_mode'] = 'identity'
-    cfg['model']['timestep_embedding_mode'] = 'fourier'
-    # cfg['model']['timestep_embedding_size'] = 1
-    cfg['model']['timestep_embedding_size'] = 16
-    # cfg['model']['timestep_embedding_size'] = 0
-    if cfg['class_cond'] > 0:
+    if cfg['is_time']:
+        if cfg['data_name'] == 'TwoMoons':
+            cfg['model']['time_embedding_mode'] = 'fourier'
+            cfg['model']['time_embedding_size'] = 16
+        else:
+            cfg['model']['time_embedding_mode'] = 'fourier'
+            cfg['model']['time_embedding_size'] = 16
+    else:
+        cfg['model']['time_embedding_mode'] = 'none'
+        cfg['model']['time_embedding_size'] = 0
+    if cfg['is_cond'] > 0:
         class_dropout = 0.2
         cfg['model']['cond_embedding_size'] = 1
     else:
@@ -45,7 +50,6 @@ def process_control():
         cfg['model']['cond_embedding_size'] = 0
 
     cfg['model']['diffusion'] = {'class_dropout': class_dropout, 'regularization': {'v': 1, 'x0': 0.1, 'eps': 0.1}}
-    # cfg['model']['flow'] = {'class_dropout': class_dropout, 'sig_min': 1e-3}
     cfg['model']['flow'] = {'class_dropout': class_dropout}
 
 
