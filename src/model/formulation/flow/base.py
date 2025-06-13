@@ -1,6 +1,6 @@
 import math
 from model.model import *
-from model.backbone import TimeEmbedding, ConditionEmbedding
+from model.backbone import TimeEmbedding, ConditionEmbedding, expand_shape
 
 
 class Base(nn.Module):
@@ -30,13 +30,13 @@ class Base(nn.Module):
         pred = self.backbone(z, time_embedding, cond_embedding)
         return pred
 
-    def make_noise(self, x):
-        noise = torch.randn_like(x)
-        return noise
+    def make_x1(self, x):
+        x_1 = torch.randn_like(x)
+        return x_1
 
-    def make_noised_reals(self, x_0, noise, t):
-        t = t.view(t.size(0), *[1 for _ in range(len(x_0.shape[1:]))])
-        noised_reals = self.alpha_t(t) * x_0 + self.sigma_t(t) * noise
+    def make_z(self, x_0, x_1, t):
+        t = expand_shape(t, x_0.size())
+        noised_reals = self.alpha_t(t) * x_0 + self.sigma_t(t) * x_1
         return noised_reals
 
     def make_targets(self, x_0, noise, t):
@@ -54,16 +54,16 @@ class Base(nn.Module):
     def forward(self, z, t, cond, training=True):
         if training:
             x_0 = z
-            noise = self.make_noise(x_0)
-            noised_reals = self.make_noised_reals(x_0, noise, t)
-            targets = self.make_targets(x_0, noise, t)
+            x_1 = self.make_x1(x_0)
+            z = self.make_z(x_0, x_1, t)
+            v = self.make_v(x_0, x_1, t)
             cond = self.make_cond(cond)
-            predicted = self.forward_diffusion_pass(noised_reals, t, cond)
-            loss = F.mse_loss(predicted, targets)
+            pred_v = self.forward_diffusion_pass(z, t, cond)
+            loss = F.mse_loss(pred_v, v)
         else:
-            predicted = self.forward_diffusion_pass(z, t, cond)
+            pred_v = self.forward_diffusion_pass(z, t, cond)
             loss = 0
-        return predicted, loss
+        return pred_v, loss
 
 
 class OptimalTransport(Base):
@@ -77,11 +77,20 @@ class OptimalTransport(Base):
 
     def sigma_t(self, t):
         return t
-    # TODO: add predict x_0, x_1
 
-    def make_targets(self, x_0, x_1, t):
+    def make_v(self, x_0, x_1, t):
         targets = x_0 - x_1
         return targets
+
+    def predict_x0(self, z, v, t):
+        t = expand_shape(t, z.size())
+        x_0 = z + (1 - t) * v
+        return x_0
+
+    def predict_x1(self, z, v, t):
+        t = expand_shape(t, z.size())
+        x_1 = z - t * v
+        return x_1
 
 
 class VariancePreserve(Base):
@@ -97,10 +106,20 @@ class VariancePreserve(Base):
     def sigma_t(self, t):
         return torch.sin(t * math.pi / 2)
 
-    def make_targets(self, x_0, x_1, t):
-        t = t.view(t.size(0), *[1 for _ in range(len(x_0.shape[1:]))])  # TODO: make this more adaptable
+    def make_v(self, x_0, x_1, t):
+        t = expand_shape(t, x_0.size())
         targets = math.pi / 2 * (self.alpha_t(t) * x_1 - self.sigma_t(t) * x_0)
         return targets
+
+    def predict_x0(self, z, v, t):
+        t = expand_shape(t, z.size())
+        x_0 = self.alpha_t(t) * z - 2 / math.pi * self.sigma_t(t) * v
+        return x_0
+
+    def predict_x1(self, z, v, t):
+        t = expand_shape(t, z.size())
+        x_1 = self.sigma_t(t) * z + 2 / math.pi * self.alpha_t(t) * v
+        return x_1
 
 
 def ot(backbone, cfg):

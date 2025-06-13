@@ -82,24 +82,6 @@ class SkipBlock(nn.Module):
         return torch.cat([self.main(input), self.skip(input)], dim=1)
 
 
-def expand_to_planes(input, shape, repeat_batch=False):
-    """
-    Expand input to match the spatial dimensions of shape.
-    Optionally repeat across the batch dimension if repeat_batch is True.
-    Handles cases where input does not have spatial dimensions.
-    """
-    # If the batch dimension needs to be repeated to match the target batch size
-    if repeat_batch and input.shape[0] == 1:
-        # Expand the batch dimension without extra repetitions
-        input = input.expand(shape[0], -1)
-
-    # Add spatial dimensions and repeat as necessary to match `shape`
-    if input.dim() == 2 and len(shape) == 4:  # Assuming input is [batch_size, channels]
-        input = input[:, :, None, None]  # Add spatial dimensions: [batch_size, channels, 1, 1]
-
-    # Repeat spatial dimensions to match the target shape (height and width)
-    if len(shape) == 4:
-        output = input.expand(-1, -1, shape[2], shape[3])
-    else:
-        output = input
-    return output
+def expand_shape(input, shape):
+    expanded = input.view(input.size(0), *([1] * (len(shape) - 1)))
+    return expanded
