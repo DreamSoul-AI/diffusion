@@ -83,5 +83,7 @@ class SkipBlock(nn.Module):
 
 
 def expand_shape(input, shape):
+    if input.dim() == 0:
+        input = input.unsqueeze(0)
     expanded = input.view(input.size(0), *([1] * (len(shape) - 1)))
     return expanded

@@ -36,11 +36,8 @@ class Base(nn.Module):
 
     def make_z(self, x_0, x_1, t):
         t = expand_shape(t, x_0.size())
-        noised_reals = self.alpha_t(t) * x_0 + self.sigma_t(t) * x_1
+        noised_reals = self.alpha(t) * x_0 + self.sigma(t) * x_1
         return noised_reals
-
-    def make_targets(self, x_0, noise, t):
-        raise NotImplementedError
 
     def make_cond(self, classes):
         if self.is_cond:
@@ -72,10 +69,10 @@ class OptimalTransport(Base):
         super().__init__(backbone, target_size, class_dropout, time_embedding_size, time_embedding_mode,
                          cond_embedding_size)
 
-    def alpha_t(self, t):
+    def alpha(self, t):
         return 1 - t
 
-    def sigma_t(self, t):
+    def sigma(self, t):
         return t
 
     def make_v(self, x_0, x_1, t):
@@ -100,25 +97,27 @@ class VariancePreserve(Base):
         super().__init__(backbone, target_size, class_dropout, time_embedding_size, time_embedding_mode,
                          cond_embedding_size)
 
-    def alpha_t(self, t):
+    def alpha(self, t):
         return torch.cos(t * math.pi / 2)
 
-    def sigma_t(self, t):
+    def sigma(self, t):
         return torch.sin(t * math.pi / 2)
 
     def make_v(self, x_0, x_1, t):
         t = expand_shape(t, x_0.size())
-        targets = math.pi / 2 * (self.alpha_t(t) * x_1 - self.sigma_t(t) * x_0)
+        targets = math.pi / 2 * (self.alpha(t) * x_1 - self.sigma(t) * x_0)
         return targets
 
     def predict_x0(self, z, v, t):
         t = expand_shape(t, z.size())
-        x_0 = self.alpha_t(t) * z - 2 / math.pi * self.sigma_t(t) * v
+        # x_0 = self.alpha(t) * z - 2 / math.pi * self.sigma(t) * v
+        x_0 = self.alpha(t) * z - self.sigma(t) * v
         return x_0
 
     def predict_x1(self, z, v, t):
         t = expand_shape(t, z.size())
-        x_1 = self.sigma_t(t) * z + 2 / math.pi * self.alpha_t(t) * v
+        # x_1 = self.sigma(t) * z + 2 / math.pi * self.alpha(t) * v
+        x_1 = self.sigma(t) * z + self.alpha(t) * v
         return x_1
 
 
