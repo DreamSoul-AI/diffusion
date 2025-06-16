@@ -22,7 +22,7 @@ class Base(nn.Module):
         return self.cond_embedding.is_cond
 
     def forward_diffusion_pass(self, z, t, cond=None):
-        time_embedding = self.time_embedding(t[:, None])
+        time_embedding = self.time_embedding(t[:, None])  # TODO: make this adapt
         if self.is_cond and cond is not None:
             cond_embedding = self.cond_embedding(cond + 1)
         else:
@@ -30,14 +30,14 @@ class Base(nn.Module):
         pred = self.backbone(z, time_embedding, cond_embedding)
         return pred
 
-    def make_x1(self, x):
-        x_1 = torch.randn_like(x)
-        return x_1
+    def make_x0(self, x):
+        x_0 = torch.randn_like(x)
+        return x_0
 
     def make_z(self, x_0, x_1, t):
         t = expand_shape(t, x_0.size())
-        noised_reals = self.alpha(t) * x_0 + self.sigma(t) * x_1
-        return noised_reals
+        z = self.sigma(t) * x_0 + self.alpha(t) * x_1
+        return z
 
     def make_cond(self, classes):
         if self.is_cond:
@@ -50,8 +50,8 @@ class Base(nn.Module):
 
     def forward(self, z, t, cond, training=True):
         if training:
-            x_0 = z
-            x_1 = self.make_x1(x_0)
+            x_1 = z
+            x_0 = self.make_x0(x_1)
             z = self.make_z(x_0, x_1, t)
             v = self.make_v(x_0, x_1, t)
             cond = self.make_cond(cond)
@@ -70,23 +70,23 @@ class OptimalTransport(Base):
                          cond_embedding_size)
 
     def alpha(self, t):
-        return 1 - t
-
-    def sigma(self, t):
         return t
 
+    def sigma(self, t):
+        return 1 - t
+
     def make_v(self, x_0, x_1, t):
-        targets = x_0 - x_1
+        targets = x_1 - x_0
         return targets
 
     def predict_x0(self, z, v, t):
         t = expand_shape(t, z.size())
-        x_0 = z + (1 - t) * v
+        x_0 = z - t * v
         return x_0
 
     def predict_x1(self, z, v, t):
         t = expand_shape(t, z.size())
-        x_1 = z - t * v
+        x_1 = z + (1 - t) * v
         return x_1
 
 
@@ -98,26 +98,24 @@ class VariancePreserve(Base):
                          cond_embedding_size)
 
     def alpha(self, t):
-        return torch.cos(t * math.pi / 2)
+        return torch.sin(t * math.pi / 2)
 
     def sigma(self, t):
-        return torch.sin(t * math.pi / 2)
+        return torch.cos(t * math.pi / 2)
 
     def make_v(self, x_0, x_1, t):
         t = expand_shape(t, x_0.size())
-        targets = math.pi / 2 * (self.alpha(t) * x_1 - self.sigma(t) * x_0)
+        targets = math.pi / 2 * (self.sigma(t) * x_1 - self.alpha(t) * x_0)
         return targets
 
     def predict_x0(self, z, v, t):
         t = expand_shape(t, z.size())
-        # x_0 = self.alpha(t) * z - 2 / math.pi * self.sigma(t) * v
-        x_0 = self.alpha(t) * z - self.sigma(t) * v
+        x_0 = self.sigma(t) * z - 2 / math.pi * self.alpha(t) * v
         return x_0
 
     def predict_x1(self, z, v, t):
         t = expand_shape(t, z.size())
-        # x_1 = self.sigma(t) * z + 2 / math.pi * self.alpha(t) * v
-        x_1 = self.sigma(t) * z + self.alpha(t) * v
+        x_1 = self.alpha(t) * z + 2 / math.pi * self.sigma(t) * v
         return x_1
 
 

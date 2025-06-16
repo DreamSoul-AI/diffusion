@@ -34,7 +34,8 @@ class FlowSampler:
         # Define timesteps and compute alphas and sigmas based on the schedule
         if mode in ['ot', 'vp']:
             # t = torch.linspace(0, 1, self.num_steps + 1, device=z.device)
-            t = torch.linspace(1, 0, self.num_steps + 1, device=z.device)
+            # t = torch.linspace(1, 0, self.num_steps + 1, device=z.device)
+            t = torch.linspace(0, 1, self.num_steps + 1, device=z.device)
             # print(t)
             # exit()
         else:
@@ -65,8 +66,8 @@ class FlowSampler:
             # TODO: need to refactor
             # x = z * alphas[i] - v * sigmas[i]
             # eps = z * sigmas[i] + v * alphas[i]
-            x = model.core.predict_x0(z, v, t[i])
-            eps = model.core.predict_x1(z, v, t[i])
+            x_0 = model.core.predict_x0(z, v, t[i])
+            x_1 = model.core.predict_x1(z, v, t[i])
 
             if i < self.num_steps - 1:
                 # TODO: ddim needs formulation check
@@ -75,13 +76,9 @@ class FlowSampler:
                 # adjusted_sigma = (sigmas[i + 1] ** 2 - ddim_sigma ** 2).sqrt()
                 # z = x * alphas[i + 1] + eps * adjusted_sigma
                 # z = x * alphas[i + 1] + eps * sigmas[i + 1]
-                z1 = model.core.make_z(x, eps, t[i + 1])
-                print(t[i + 1] - t[i])
-                print(z1)
-                z += 1 / self.num_steps * v
-                print(z)
-                exit()
+                z = model.core.make_z(x_0, x_1, t[i + 1])
+                # z += 1 / self.num_steps * v
                 # if self.eta:
                 #     z += torch.randn_like(z) * ddim_sigma
         # return x
-        return z
+        return x_1
