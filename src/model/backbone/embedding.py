@@ -85,7 +85,7 @@ class ConditionEmbedding(nn.Module):
 
     def forward(self, cond):
         if self.cond_embedding is not None and cond is not None:
-            embedding = self.cond_embedding(cond + 1)
+            embedding = self.cond_embedding(cond)
         else:
             embedding = None
         return embedding

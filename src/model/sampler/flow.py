@@ -33,28 +33,19 @@ class FlowSampler:
 
         # Define timesteps and compute alphas and sigmas based on the schedule
         if mode in ['ot', 'vp']:
-            # t = torch.linspace(0, 1, self.num_steps + 1, device=z.device)
-            # t = torch.linspace(1, 0, self.num_steps + 1, device=z.device)
             t = torch.linspace(0, 1, self.num_steps + 1, device=z.device)
-            # print(t)
-            # exit()
         else:
             raise ValueError('Not valid mode')
 
-        import math
-        # alphas, sigmas = torch.cos(t * math.pi / 2), torch.sin(t * math.pi / 2) # TODO: need to refactor
-        alphas, sigmas = model.core.alpha(t), model.core.sigma(t)
         ts = z.new_ones([z.shape[0]])
 
-        x = None
         input = {}
-        # The sampling loop
-        for i in tqdm(range(self.num_steps)):  # TODO: cond this check
+        for i in tqdm(range(self.num_steps)):
             if model.core.is_cond and self.guidance_scale > 1 and classes is not None:
                 input['data'] = torch.cat([z, z])  # Duplicate input for unconditional and conditional
                 input['target'] = torch.cat([-torch.ones_like(classes), classes])  # Classifier-free guidance
                 input['t'] = torch.cat([ts, ts]) * t[i]
-                uncond, cond = model(input)['data'].float().chunk(2)
+                uncond, cond = model(input)['data'].chunk(2)
                 pred = uncond + self.guidance_scale * (cond - uncond)
             else:
                 input['data'] = z
@@ -63,9 +54,6 @@ class FlowSampler:
                 pred = model.core.forward_diffusion_pass(z, ts * t[i])
 
             v = pred
-            # TODO: need to refactor
-            # x = z * alphas[i] - v * sigmas[i]
-            # eps = z * sigmas[i] + v * alphas[i]
             x_0 = model.core.predict_x0(z, v, t[i])
             x_1 = model.core.predict_x1(z, v, t[i])
 
@@ -74,11 +62,5 @@ class FlowSampler:
                 # ddim_sigma = self.eta * (sigmas[i + 1] ** 2 / sigmas[i] ** 2).sqrt() * \
                 #              (1 - alphas[i] ** 2 / alphas[i + 1] ** 2).sqrt()
                 # adjusted_sigma = (sigmas[i + 1] ** 2 - ddim_sigma ** 2).sqrt()
-                # z = x * alphas[i + 1] + eps * adjusted_sigma
-                # z = x * alphas[i + 1] + eps * sigmas[i + 1]
                 z = model.core.make_z(x_0, x_1, t[i + 1])
-                # z += 1 / self.num_steps * v
-                # if self.eta:
-                #     z += torch.randn_like(z) * ddim_sigma
-        # return x
         return x_1

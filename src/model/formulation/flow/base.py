@@ -22,7 +22,7 @@ class Base(nn.Module):
         return self.cond_embedding.is_cond
 
     def forward_diffusion_pass(self, z, t, cond=None):
-        time_embedding = self.time_embedding(t[:, None])  # TODO: make this adapt
+        time_embedding = self.time_embedding(t)
         if self.is_cond and cond is not None:
             cond_embedding = self.cond_embedding(cond + 1)
         else:

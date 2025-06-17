@@ -26,7 +26,7 @@ class MLP(nn.Module):
         if time_embedding is not None:
             x = torch.cat([x, time_embedding], dim=1)
         if cond_embedding is not None:
-            cond_embedding = expand_to_planes(cond_embedding, x.shape)
+            # cond_embedding = expand_to_planes(cond_embedding, x.shape)
             x = torch.cat([x, cond_embedding], dim=1)
         x = self.blocks(x)
         return x, size
