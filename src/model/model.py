@@ -9,12 +9,7 @@ from transformers import get_linear_schedule_with_warmup
 def make_model(cfg):
     backbone = eval('model.{}(cfg)'.format(cfg['model_name']))
     formulation = eval('model.{}(backbone, cfg)'.format(cfg['formulation_mode']))
-    if cfg['model_mode'] == 'diffusion':
-        model_ = model.formulation.diffusion(formulation, cfg)
-    elif cfg['model_mode'] == 'flow':
-        model_ = model.formulation.flow(formulation, cfg)
-    else:
-        raise ValueError('Not valid model mode')
+    model_ = model.formulation.base(formulation, cfg)
     return model_
 
 
@@ -23,10 +18,7 @@ def make_sampler(cfg):
     guidance_scale = cfg['guidance_scale']
     eta = cfg['eta']
     normalize = cfg['normalize']
-    if cfg['model_mode'] == 'diffusion':
-        sampler = model.sampler.DiffusionSampler(num_steps, guidance_scale, eta, normalize)
-    else:
-        sampler = model.sampler.FlowSampler(num_steps, guidance_scale, eta, normalize)
+    sampler = model.sampler.Sampler(num_steps, guidance_scale, eta, normalize)
     return sampler
 
 

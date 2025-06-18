@@ -3,7 +3,7 @@ from tqdm import tqdm
 from model import OptimalTransport, VariancePreserve
 
 
-class FlowSampler:
+class Sampler:
     def __init__(self, num_steps=100, guidance_scale=1.0, eta=0.0, normalize=False):
         self.num_steps = num_steps
         self.guidance_scale = guidance_scale
@@ -54,13 +54,13 @@ class FlowSampler:
                 pred = model.core.forward_diffusion_pass(z, ts * t[i])
 
             v = pred
-            x_0 = model.core.predict_x0(z, v, t[i])
-            x_1 = model.core.predict_x1(z, v, t[i])
+            x0 = model.core.predict_x0(z, v, t[i])
+            x1 = model.core.predict_x1(z, v, t[i])
 
             if i < self.num_steps - 1:
                 # TODO: ddim needs formulation check
                 # ddim_sigma = self.eta * (sigmas[i + 1] ** 2 / sigmas[i] ** 2).sqrt() * \
                 #              (1 - alphas[i] ** 2 / alphas[i + 1] ** 2).sqrt()
                 # adjusted_sigma = (sigmas[i + 1] ** 2 - ddim_sigma ** 2).sqrt()
-                z = model.core.make_z(x_0, x_1, t[i + 1])
-        return x_1
+                z = model.core.make_z(x0, x1, t[i + 1])
+        return x1

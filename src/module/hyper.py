@@ -4,10 +4,10 @@ from config import cfg
 def process_control():
     cfg['data_name'] = cfg['control']['data_name']
     cfg['model_name'] = cfg['control']['model_name']
-    cfg['model_mode'] = cfg['control']['model_mode']
     cfg['formulation_mode'] = cfg['control']['formulation_mode']
     cfg['is_time'] = cfg['control']['is_time']
     cfg['is_cond'] = cfg['control']['is_cond']
+    cfg['regularization'] = cfg['control']['regularization']
 
     cfg['batch_size'] = 256
     cfg['step_period'] = 1
@@ -22,7 +22,6 @@ def process_control():
 
     cfg['model'] = {}
     cfg['model']['model_name'] = cfg['model_name']
-    cfg['model']['model_mode'] = cfg['model_mode']
     cfg['model']['formulation_mode'] = cfg['formulation_mode']
     cfg['model']['unet'] = {'hidden_size': 64}
     if cfg['data_name'] in ['TwoMoons']:
@@ -50,8 +49,7 @@ def process_control():
         cfg['model']['cond_embedding_size'] = 0
 
     cfg['model']['diffusion'] = {'class_dropout': class_dropout, 'regularization': {'v': 1, 'x0': 0.1, 'eps': 0.1}}
-    cfg['model']['flow'] = {'class_dropout': class_dropout}
-
+    cfg['model']['flow'] = {'class_dropout': class_dropout, 'regularization': cfg['regularization']}
 
     tag = cfg['tag']
     cfg[tag] = {}
@@ -72,7 +70,6 @@ def process_control():
     cfg[tag]['optimizer']['min_lr'] = 1e-5
     cfg[tag]['optimizer']['warmup_ratio'] = 0
 
-    cfg['generate']['model_mode'] = cfg['model_mode']
     if cfg['data_name'] in ['TwoMoons']:
         cfg['generate']['batch_size'] = 150
     else:

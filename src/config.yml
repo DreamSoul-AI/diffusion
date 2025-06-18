@@ -3,10 +3,13 @@
 control:
   data_name: TwoMoons
   model_name: mlp
-  model_mode: flow
-  formulation_mode: vp
+  formulation_mode: ot
   is_time: 1
-  is_cond: 1
+  is_cond: 0
+  regularization:
+    v: 1.0
+    x0: 1.0
+    x1: 1.0
 # generate
 generate:
   num_steps: 100
