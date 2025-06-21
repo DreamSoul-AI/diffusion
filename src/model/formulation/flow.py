@@ -50,6 +50,10 @@ class Flow(nn.Module):
             cond = None
         return cond
 
+    def add_noise(self, z, t):
+        z += z + self.sigma(t) * self.make_x0(z)
+        return z
+
     def forward(self, z, t, cond, training=True):
         if training:
             x1 = z

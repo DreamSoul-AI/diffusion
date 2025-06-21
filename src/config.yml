@@ -3,7 +3,7 @@
 control:
   data_name: TwoMoons
   model_name: mlp
-  formulation_mode: ot
+  formulation_mode: ot # TODO: need to rename got,ot, angle
   is_time: 1
   is_cond: 0
   regularization:
@@ -14,7 +14,7 @@ control:
 generate:
   num_steps: 100
   guidance_scale: 2.
-  eta: 0.
+  eta: 1.
 # experiment
 pin_memory: True
 num_workers: 0

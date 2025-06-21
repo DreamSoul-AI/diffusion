@@ -62,5 +62,25 @@ class Sampler:
                 # ddim_sigma = self.eta * (sigmas[i + 1] ** 2 / sigmas[i] ** 2).sqrt() * \
                 #              (1 - alphas[i] ** 2 / alphas[i + 1] ** 2).sqrt()
                 # adjusted_sigma = (sigmas[i + 1] ** 2 - ddim_sigma ** 2).sqrt()
-                z = model.core.make_z(x0, x1, t[i + 1])
+                # z = x * alphas[i + 1] + eps * adjusted_sigma
+                # # Add noise if eta > 0
+                # if self.eta:
+                #     z += torch.randn_like(z) * ddim_sigma
+
+                # z = model.core.make_z(x0, x1, t[i + 1])
+                if self.eta > 0: # TODO: need refactor
+                    ddim_sigma = (model.core.sigma(t[i + 1]) ** 2 / model.core.sigma(t[i]) ** 2).sqrt() * \
+                                     (1 - model.core.alpha(t[i]) ** 2 / model.core.alpha(t[i + 1]) ** 2).sqrt()
+                    adjusted_sigma = (model.core.sigma(t[i + 1]) ** 2 - ddim_sigma ** 2).sqrt()
+                    t = expand_shape(t, x0.size())
+                    z = x1 * model.core.alpha(t[i + 1]) + x0 * adjusted_sigma
+                    z += torch.randn_like(z) * ddim_sigma
+                else:
+                    z = model.core.make_z(x0, x1, t[i + 1])
         return x1
+
+def expand_shape(input, shape):
+    if input.dim() == 0:
+        input = input.unsqueeze(0)
+    expanded = input.view(input.size(0), *([1] * (len(shape) - 1)))
+    return expanded
