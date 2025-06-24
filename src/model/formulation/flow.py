@@ -12,7 +12,7 @@ class Flow(nn.Module):
         self.target_size = target_size
         self.class_dropout = class_dropout
         self.time_embedding = TimeEmbedding(time_embedding_mode, time_embedding_size)
-        self.cond_embedding = ConditionEmbedding(self.target_size + 1, cond_embedding_size)
+        self.cond_embedding = ConditionEmbedding(self.target_size + 1, cond_embedding_size, offset=1)
         self.regularization = regularization
 
     @property
@@ -25,10 +25,11 @@ class Flow(nn.Module):
 
     def forward_diffusion_pass(self, z, t, cond=None):
         time_embedding = self.time_embedding(t)
-        if self.is_cond and cond is not None:
-            cond_embedding = self.cond_embedding(cond + 1)
-        else:
-            cond_embedding = None
+        cond_embedding = self.cond_embedding(cond)
+        if time_embedding is not None:
+            time_embedding = expand_shape(time_embedding, z.size(), 'base')
+        if cond_embedding is not None:
+            cond_embedding = expand_shape(cond_embedding, z.size(), 'base')
         pred = self.backbone(z, time_embedding, cond_embedding)
         return pred
 
@@ -69,16 +70,16 @@ class Flow(nn.Module):
                 loss_x0 = F.mse_loss(pred_x0, x0)
                 loss += self.regularization['x0'] * loss_x0
             else:
-                loss_x0 = 0
+                loss_x0 = torch.tensor([0])
             if self.regularization['x1'] > 0:
                 pred_x1 = self.predict_x1(z, pred_v, t)
                 loss_x1 = F.mse_loss(pred_x1, x1)
                 loss += self.regularization['x1'] * loss_x1
             else:
-                loss_x1 = 0
+                loss_x1 = torch.tensor([0])
         else:
             pred_v = self.forward_diffusion_pass(z, t, cond)
-            loss, loss_v, loss_x0, loss_x1 = 0, 0, 0, 0
+            loss, loss_v, loss_x0, loss_x1 = torch.tensor([0]), torch.tensor([0]), torch.tensor([0]), torch.tensor([0])
         return pred_v, loss, loss_v, loss_x0, loss_x1
 
 
@@ -95,8 +96,8 @@ class OptimalTransport(Flow):
         return 1 - t
 
     def make_v(self, x0, x1, t):
-        targets = x1 - x0
-        return targets
+        v = x1 - x0
+        return v
 
     def predict_x0(self, z, v, t):
         t = expand_shape(t, z.size())
@@ -109,8 +110,7 @@ class OptimalTransport(Flow):
         return x1
 
 
-class VariancePreserve(Flow):
-
+class AngularTransport(Flow):
     def __init__(self, backbone, target_size, class_dropout, time_embedding_size, time_embedding_mode,
                  cond_embedding_size, regularization):
         super().__init__(backbone, target_size, class_dropout, time_embedding_size, time_embedding_mode,
@@ -124,8 +124,8 @@ class VariancePreserve(Flow):
 
     def make_v(self, x0, x1, t):
         t = expand_shape(t, x0.size())
-        targets = math.pi / 2 * (self.sigma(t) * x1 - self.alpha(t) * x0)
-        return targets
+        v = math.pi / 2 * (self.sigma(t) * x1 - self.alpha(t) * x0)
+        return v
 
     def predict_x0(self, z, v, t):
         t = expand_shape(t, z.size())
@@ -135,6 +135,34 @@ class VariancePreserve(Flow):
     def predict_x1(self, z, v, t):
         t = expand_shape(t, z.size())
         x1 = self.alpha(t) * z + 2 / math.pi * self.sigma(t) * v
+        return x1
+
+
+class GaussianTransport(Flow):
+    def __init__(self, backbone, target_size, class_dropout, time_embedding_size, time_embedding_mode,
+                 cond_embedding_size, regularization):
+        super().__init__(backbone, target_size, class_dropout, time_embedding_size, time_embedding_mode,
+                         cond_embedding_size, regularization)
+
+    def alpha(self, t):
+        return torch.sqrt(t)
+
+    def sigma(self, t):
+        return torch.sqrt(1 - t)
+
+    def make_v(self, x0, x1, t):
+        t = expand_shape(t, x0.size())
+        v = 1 / 2 * (1 / self.alpha(t) * x1 - 1 / self.sigma(t) * x0)
+        return v
+
+    def predict_x0(self, z, v, t):
+        t = expand_shape(t, z.size())
+        x0 = self.sigma(t) * (z - 2 * (self.alpha(t) ** 2) * v)
+        return x0
+
+    def predict_x1(self, z, v, t):
+        t = expand_shape(t, z.size())
+        x1 = self.alpha(t) * (z + 2 * (self.sigma(t) ** 2) * v)
         return x1
 
 
@@ -150,13 +178,25 @@ def ot(backbone, cfg):
     return model
 
 
-def vp(backbone, cfg):
+def at(backbone, cfg):
     target_size = cfg['target_size']
     class_dropout = cfg['flow']['class_dropout']
     regularization = cfg['flow']['regularization']
     time_embedding_mode = cfg['time_embedding_mode']
     time_embedding_size = cfg['time_embedding_size']
     cond_embedding_size = cfg['cond_embedding_size']
-    model = VariancePreserve(backbone, target_size, class_dropout, time_embedding_mode, time_embedding_size,
+    model = AngularTransport(backbone, target_size, class_dropout, time_embedding_mode, time_embedding_size,
                              cond_embedding_size, regularization)
+    return model
+
+
+def gt(backbone, cfg):
+    target_size = cfg['target_size']
+    class_dropout = cfg['flow']['class_dropout']
+    regularization = cfg['flow']['regularization']
+    time_embedding_mode = cfg['time_embedding_mode']
+    time_embedding_size = cfg['time_embedding_size']
+    cond_embedding_size = cfg['cond_embedding_size']
+    model = GaussianTransport(backbone, target_size, class_dropout, time_embedding_mode, time_embedding_size,
+                              cond_embedding_size, regularization)
     return model

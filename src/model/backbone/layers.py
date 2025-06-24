@@ -82,8 +82,14 @@ class SkipBlock(nn.Module):
         return torch.cat([self.main(input), self.skip(input)], dim=1)
 
 
-def expand_shape(input, shape):
+def expand_shape(input, shape, expand_value=1):
     if input.dim() == 0:
         input = input.unsqueeze(0)
-    expanded = input.view(input.size(0), *([1] * (len(shape) - 1)))
+    if isinstance(expand_value, int):
+        expanded = input.view(*input.size(), *([expand_value] * (len(shape) - input.dim())))
+    elif expand_value == 'base':
+        expanded = input.view(*input.size(), *([1] * (len(shape) - input.dim())))
+        expanded = expanded.expand(*([-1] * input.dim()), *shape[input.dim():])
+    else:
+        raise ValueError('Not valid expand value')
     return expanded

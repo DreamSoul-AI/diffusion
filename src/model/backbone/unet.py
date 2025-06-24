@@ -2,16 +2,16 @@ from .layers import *
 
 
 class UNet(nn.Module):
-    def __init__(self, data_size, hidden_size, timestep_embedding_size, cond_embedding_size):
+    def __init__(self, data_size, hidden_size, time_embedding_size, cond_embedding_size):
         super().__init__()
         self.data_size = data_size
         self.hidden_size = hidden_size
-        self.timestep_embedding_size = timestep_embedding_size
+        self.time_embedding_size = time_embedding_size
         self.cond_embedding_size = cond_embedding_size
         c = hidden_size  # The base channel count
 
         self.net = nn.Sequential(  # 32x32
-            ResConvBlock(self.data_size[0] + timestep_embedding_size + cond_embedding_size, c, c),
+            ResConvBlock(self.data_size[0] + time_embedding_size + cond_embedding_size, c, c),
             ResConvBlock(c, c, c),
             SkipBlock([
                 nn.AvgPool2d(2),  # 32x32 -> 16x16
@@ -65,7 +65,7 @@ class UNet(nn.Module):
 def unet(cfg):
     data_size = cfg['data_size']
     hidden_size = cfg['unet']['hidden_size']
-    timestep_embedding_size = cfg['timestep_embedding_size']
+    time_embedding_size = cfg['time_embedding_size']
     cond_embedding_size = cfg['cond_embedding_size']
-    model = UNet(data_size, hidden_size, timestep_embedding_size, cond_embedding_size)
+    model = UNet(data_size, hidden_size, time_embedding_size, cond_embedding_size)
     return model

@@ -1,20 +1,20 @@
 ---
 # control
 control:
-  data_name: TwoMoons
-  model_name: mlp
-  formulation_mode: ot # TODO: need to rename got,ot, angle
+  data_name: MNIST
+  model_name: unet
+  formulation_mode: ot
   is_time: 1
-  is_cond: 0
+  is_cond: 1
   regularization:
-    v: 1.0
-    x0: 1.0
-    x1: 1.0
+    v: 1.
+    x0: 0.
+    x1: 0.
 # generate
 generate:
   num_steps: 100
   guidance_scale: 2.
-  eta: 1.
+  eta: 0.
 # experiment
 pin_memory: True
 num_workers: 0

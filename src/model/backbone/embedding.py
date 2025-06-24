@@ -14,19 +14,6 @@ class IdentityEmbedding(nn.Module):
         output = input.expand(*shape)
         return output
 
-
-# class FourierEmbedding(nn.Module):
-#     def __init__(self, input_size, output_size):
-#         super().__init__()
-#         assert output_size % 2 == 0
-#         self.input_size = input_size
-#         self.output_size = output_size
-#         self.weight = nn.Parameter(torch.randn([output_size // 2, input_size]))
-#
-#     def forward(self, input):
-#         f = 2 * math.pi * input @ self.weight.T
-#         return torch.cat([f.cos(), f.sin()], dim=-1)
-
 class FourierEmbedding(nn.Module):
     def __init__(self, input_size, output_size, max_period=10000.):
         super().__init__()
@@ -72,7 +59,7 @@ class TimeEmbedding(nn.Module):
 
 
 class ConditionEmbedding(nn.Module):
-    def __init__(self, num_embedding, embedding_size):
+    def __init__(self, num_embedding, embedding_size, offset=1):
         super().__init__()
         self.num_embedding = num_embedding
         self.embedding_size = embedding_size
@@ -82,10 +69,11 @@ class ConditionEmbedding(nn.Module):
         else:
             self.cond_embedding = None
             self.is_cond = False
+        self.offset = offset
 
     def forward(self, cond):
         if self.cond_embedding is not None and cond is not None:
-            embedding = self.cond_embedding(cond)
+            embedding = self.cond_embedding(cond + self.offset)
         else:
             embedding = None
         return embedding
