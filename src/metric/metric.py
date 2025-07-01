@@ -14,7 +14,7 @@ def make_metric(split, **kwargs):
         best_metric_name = 'Loss'
         for k in metric_name:
             if run_mode == 'train':
-                metric_name[k].extend(['Loss', 'Loss_v', 'Loss_x0', 'Loss_x1'])
+                metric_name[k].extend(['Loss', 'Loss_v', 'Loss_x0', 'Loss_x1', 'Loss_consistency'])
             else:
                 metric_name[k].extend(['FID'])
     elif data_name in ['TwoMoons']:
@@ -22,8 +22,7 @@ def make_metric(split, **kwargs):
         best_direction = 'down'
         best_metric_name = 'Loss'
         for k in metric_name:
-            metric_name[k].extend(['Loss', 'Loss_v', 'Loss_x0', 'Loss_x1'])
-
+            metric_name[k].extend(['Loss', 'Loss_v', 'Loss_x0', 'Loss_x1', 'Loss_consistency'])
     else:
         raise ValueError('Not valid data name')
     metric = Metric(metric_name, best, best_direction, best_metric_name)
@@ -117,6 +116,9 @@ class Metric:
                     metric[split][m] = {'mode': 'batch', 'metric': (lambda input, output: output['loss_x0'].item())}
                 elif m == 'Loss_x1':
                     metric[split][m] = {'mode': 'batch', 'metric': (lambda input, output: output['loss_x1'].item())}
+                elif m == 'Loss_consistency':
+                    metric[split][m] = {'mode': 'batch', 'metric': (lambda input,
+                                                                           output: output['loss_consistency'].item())}
                 elif m == 'Accuracy':
                     metric[split][m] = {'mode': 'batch',
                                         'metric': (lambda input, output: Accuracy(output['target'], input['target']))}

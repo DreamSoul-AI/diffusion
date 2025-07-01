@@ -3,7 +3,6 @@ from model.model import *
 from model.backbone import TimeEmbedding, ConditionEmbedding, expand_shape
 
 
-# TODO: add consistency
 class Flow(nn.Module):
     def __init__(self, backbone, target_size, class_dropout, time_embedding_mode, time_embedding_size,
                  cond_embedding_size, regularization):
@@ -14,6 +13,7 @@ class Flow(nn.Module):
         self.time_embedding = TimeEmbedding(time_embedding_mode, time_embedding_size)
         self.cond_embedding = ConditionEmbedding(self.target_size + 1, cond_embedding_size, offset=1)
         self.regularization = regularization
+        self.step_size = 1e-2
 
     @property
     def is_time(self):
@@ -67,7 +67,7 @@ class Flow(nn.Module):
             loss = self.regularization['v'] * loss_v
             if self.regularization['x0'] > 0:
                 pred_x0 = self.predict_x0(z, pred_v, t)
-                loss_x0 = F.mse_loss(pred_x0, x0)
+                loss_x0 = F.mse_loss(pred_x0, x0) # TODO: Evaluate always?
                 loss += self.regularization['x0'] * loss_x0
             else:
                 loss_x0 = torch.tensor([0])
@@ -77,10 +77,24 @@ class Flow(nn.Module):
                 loss += self.regularization['x1'] * loss_x1
             else:
                 loss_x1 = torch.tensor([0])
+            if self.regularization['consistency'] > 0:
+                with torch.no_grad():
+                    t_consistency = (t - self.step_size).clamp(min=0)
+                    z_consistency = self.make_z(x0, x1, t_consistency)
+                    pred_v_consistency = self.forward_diffusion_pass(z_consistency, t_consistency, cond)
+                    pred_x1_consistency = self.predict_x1(z_consistency, pred_v_consistency, t_consistency)
+                    pred_x1_consistency = pred_x1_consistency.detach()
+                pred_x1 = self.predict_x1(z, pred_v, t)
+                loss_consistency = F.mse_loss(pred_x1, pred_x1_consistency)
+                loss += self.regularization['consistency'] * loss_consistency
+            else:
+                loss_consistency = torch.tensor([0])
+
         else:
             pred_v = self.forward_diffusion_pass(z, t, cond)
-            loss, loss_v, loss_x0, loss_x1 = torch.tensor([0]), torch.tensor([0]), torch.tensor([0]), torch.tensor([0])
-        return pred_v, loss, loss_v, loss_x0, loss_x1
+            loss, loss_v, loss_x0, loss_x1, loss_consistency = (torch.tensor([0]), torch.tensor([0]), torch.tensor([0]),
+                                                                torch.tensor([0]), torch.tensor([0]))
+        return pred_v, loss, loss_v, loss_x0, loss_x1, loss_consistency
 
 
 class OptimalTransport(Flow):

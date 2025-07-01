@@ -20,11 +20,12 @@ class Base(nn.Module):
         else:
             t = input['t']
         output = {}
-        output['data'], loss, loss_v, loss_x0, loss_x1 = self.core(x_0, t, cond, training)
+        output['data'], loss, loss_v, loss_x0, loss_x1, loss_consistency = self.core(x_0, t, cond, training)
         output['loss'] = loss
         output['loss_v'] = loss_v
         output['loss_x0'] = loss_x0
         output['loss_x1'] = loss_x1
+        output['loss_consistency'] = loss_consistency
         return output
 
 
