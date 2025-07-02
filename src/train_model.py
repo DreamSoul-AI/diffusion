@@ -124,6 +124,7 @@ def train(data_loader, model, optimizer, scheduler, logger):
 def test(data_loader, model, logger):
     with torch.no_grad():
         model.train(False)
+        num_steps = len(data_loader) if cfg['eval']['num_steps'] == -1 else cfg['eval']['num_steps']
         for i, input in enumerate(data_loader):
             input_size = input['data'].size(0)
             input = to_device(input, cfg['device'])
@@ -132,6 +133,8 @@ def test(data_loader, model, logger):
             evaluation = logger.evaluate('test', 'batch', input, output)
             logger.append(evaluation, 'test', input_size)
             logger.add('test', input, output)
+            if (i + 1) == num_steps:
+                break
         evaluation = logger.evaluate('test', 'full')
         logger.append(evaluation, 'test', input_size)
         info = {'info': ['Model: {}'.format(cfg['tag']),

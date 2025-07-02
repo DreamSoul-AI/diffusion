@@ -19,6 +19,8 @@ def process_control():
         cfg['num_epochs'] = 10
     cfg['collate_mode'] = 'dict'
     cfg['save_checkpoint'] = True
+    cfg['eval'] = {}
+    cfg['eval']['num_steps'] = 1
 
     cfg['model'] = {}
     cfg['model']['model_name'] = cfg['model_name']
@@ -60,7 +62,7 @@ def process_control():
     cfg[tag]['optimizer']['betas'] = (0.9, 0.999)
     cfg[tag]['optimizer']['weight_decay'] = 1e-4
     cfg[tag]['optimizer']['nesterov'] = True
-    cfg[tag]['optimizer']['test_batch_ratio'] = 4
+    cfg[tag]['optimizer']['test_batch_ratio'] = 1
     cfg[tag]['optimizer']['batch_size'] = {'train': cfg['batch_size'],
                                            'test': cfg[tag]['optimizer']['test_batch_ratio'] * cfg['batch_size']}
     cfg[tag]['optimizer']['step_period'] = cfg['step_period']
@@ -76,4 +78,8 @@ def process_control():
         cfg['generate']['batch_size'] = 5
     cfg['generate']['img_fmt'] = 'png'
     cfg['generate']['normalize'] = False
+    if cfg['is_cond'] == 1 and cfg['generate']['guidance_scale'] <= 1:
+        cfg['generate']['guidance_scale'] = 2
+    elif cfg['is_cond'] == 0 and cfg['generate']['guidance_scale'] > 1:
+        cfg['generate']['guidance_scale'] = 1
     return

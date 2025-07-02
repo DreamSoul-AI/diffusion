@@ -5,8 +5,8 @@ import torch.backends.cudnn as cudnn
 from config import cfg, process_args
 from dataset import make_dataset, make_data_loader, process_dataset
 from metric import make_logger
-from model import make_model, Sampler
-from module import save, resume, to_device, process_control, ddim_sample_loop_V
+from model import make_model, make_sampler
+from module import save, resume, to_device, process_control
 
 cudnn.benchmark = True
 parser = argparse.ArgumentParser(description='cfg')
@@ -58,22 +58,23 @@ def runExperiment():
 
 def test(data_loader, model, logger):
     with torch.no_grad():
-        sampler = Sampler(cfg['generate']['num_steps'], cfg['generate']['guidance_scale'], cfg['generate']['eta'])
+        sampler = make_sampler(cfg['generate'])
         model.train(False)
+        num_steps = len(data_loader) if cfg['eval']['num_steps'] == -1 else cfg['eval']['num_steps']
         for i, input in enumerate(data_loader):
+            print(i)
             input_size = input['data'].size(0)
             input = to_device(input, cfg['device'])
-            noise = torch.randn(input['data'].size()).to(cfg['device'])
-            if sampler.guidance_scale > 1:
-                classes = input['target']
-            else:
-                classes = -input['data'].new_ones((input_size,), dtype=torch.long)
+            noise = torch.randn(input['data'].size(), device=(cfg['device']))
+            classes = input['target']
             samples = sampler.sample(noise, model, classes)
             input = {'data': sampler.apply_normalize(input['data'], -1, 1)}
-            output = {'data': samples}
+            output = {'data': sampler.apply_normalize(samples, -1, 1)}
             evaluation = logger.evaluate('test', 'batch', input, output)
             logger.append(evaluation, 'test', input_size)
             logger.add('test', input, output)
+            if (i + 1) == num_steps:
+                break
         evaluation = logger.evaluate('test', 'full')
         logger.append(evaluation, 'test', input_size)
         info = {'info': ['Model: {}'.format(cfg['tag']),
