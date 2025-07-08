@@ -1,19 +1,19 @@
 ---
 # control
 control:
-  data_name: MNIST
-  model_name: unet
-  formulation_mode: ot
+  data_name: TwoMoons
+  model_name: mlp
+  formulation_mode: at
   is_time: 1
-  is_cond: 1
+  is_cond: 0
   regularization:
     v: 1.
     x0: 0.
     x1: 0.
-    consistency: 0.
+    consistency: 1.
 # generate
 generate:
-  num_steps: 100
+  num_steps: 1
   guidance_scale: 2.
   eta: 0.
 # experiment

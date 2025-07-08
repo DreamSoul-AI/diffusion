@@ -64,23 +64,24 @@ class Flow(nn.Module):
             cond = self.make_cond(cond)
             pred_v = self.forward_diffusion_pass(z, t, cond)
             loss_v = F.mse_loss(pred_v, v)
-            loss = self.regularization['v'] * loss_v
+
+            pred_x0 = self.predict_x0(z, pred_v, t)
+            loss_x0 = F.mse_loss(pred_x0, x0)
+
+            pred_x1 = self.predict_x1(z, pred_v, t)
+            loss_x1 = F.mse_loss(pred_x1, x1)
+
+            loss = z.new_zeros(())
             if self.regularization['x0'] > 0:
-                pred_x0 = self.predict_x0(z, pred_v, t)
-                loss_x0 = F.mse_loss(pred_x0, x0) # TODO: Evaluate always?
+                loss += self.regularization['v'] * loss_v
+            if self.regularization['x0'] > 0:
                 loss += self.regularization['x0'] * loss_x0
-            else:
-                loss_x0 = torch.tensor([0])
             if self.regularization['x1'] > 0:
-                pred_x1 = self.predict_x1(z, pred_v, t)
-                loss_x1 = F.mse_loss(pred_x1, x1)
                 loss += self.regularization['x1'] * loss_x1
-            else:
-                loss_x1 = torch.tensor([0])
             if self.regularization['consistency'] > 0:
                 with torch.no_grad():
-                    t_consistency = (t - self.step_size).clamp(min=0)
-                    z_consistency = self.make_z(x0, x1, t_consistency)
+                    t_consistency = (t - self.step_size).clamp(min=0, max=1)
+                    z_consistency = self.make_z(pred_x0, pred_x1, t_consistency)
                     pred_v_consistency = self.forward_diffusion_pass(z_consistency, t_consistency, cond)
                     pred_x1_consistency = self.predict_x1(z_consistency, pred_v_consistency, t_consistency)
                     pred_x1_consistency = pred_x1_consistency.detach()
@@ -89,7 +90,6 @@ class Flow(nn.Module):
                 loss += self.regularization['consistency'] * loss_consistency
             else:
                 loss_consistency = torch.tensor([0])
-
         else:
             pred_v = self.forward_diffusion_pass(z, t, cond)
             loss, loss_v, loss_x0, loss_x1, loss_consistency = (torch.tensor([0]), torch.tensor([0]), torch.tensor([0]),
