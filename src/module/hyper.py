@@ -23,11 +23,13 @@ def process_control():
     cfg['eval']['num_steps'] = 1
 
     cfg['model'] = {}
+    cfg['model']['data_name'] = cfg['data_name']
     cfg['model']['model_name'] = cfg['model_name']
     cfg['model']['formulation_mode'] = cfg['formulation_mode']
     cfg['model']['unet'] = {'hidden_size': 64}
     if cfg['data_name'] in ['TwoMoons']:
         cfg['model']['mlp'] = {'hidden_size': [64, 64, 64], 'activation': 'relu'}
+        cfg['model']['hypermlp'] = {'hidden_size': 64, 'activation': 'relu'}
     else:
         cfg['model']['mlp'] = {'hidden_size': [128, 256], 'activation': 'relu'}
 

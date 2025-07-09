@@ -18,46 +18,51 @@ def make_dataset(data_name, verbose=True):
     if verbose:
         print('fetching data {}...'.format(data_name))
     root = os.path.join('data', data_name)
-    if data_name in ['MNIST', 'FashionMNIST']:
-        dataset_['train'] = eval('dataset.{}(root=root, split="train", '
-                                 'transform=dataset.Compose([transforms.ToTensor()]))'.format(data_name))
-        dataset_['test'] = eval('dataset.{}(root=root, split="test", '
-                                'transform=dataset.Compose([transforms.ToTensor()]))'.format(data_name))
-        dataset_['train'].transform = dataset.Compose([
-            transforms.Resize(32),
-            transforms.ToTensor(),
-            transforms.Normalize([0.5], [0.5])])
-        dataset_['test'].transform = dataset.Compose([
-            transforms.Resize(32),
-            transforms.ToTensor(),
-            transforms.Normalize([0.5], [0.5])])
-        dataset_['train'].data_size = (1, 32, 32)
-        dataset_['test'].data_size = (1, 32, 32)
-    elif data_name in ['CIFAR10', 'CIFAR100']:
-        dataset_['train'] = eval('dataset.{}(root=root, split="train", '
-                                 'transform=dataset.Compose([transforms.ToTensor()]))'.format(data_name))
-        dataset_['test'] = eval('dataset.{}(root=root, split="test", '
-                                'transform=dataset.Compose([transforms.ToTensor()]))'.format(data_name))
-        dataset_['train'].transform = dataset.Compose([
-            transforms.RandomHorizontalFlip(),
-            transforms.RandomCrop(32, padding=4, padding_mode='reflect'),
-            transforms.ToTensor(),
-            transforms.Normalize([0.5], [0.5])])
-        dataset_['test'].transform = dataset.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize([0.5], [0.5])])
-    elif data_name in ['SVHN']:
-        dataset_['train'] = eval('dataset.{}(root=root, split="train", '
-                                 'transform=dataset.Compose([transforms.ToTensor()]))'.format(data_name))
-        dataset_['test'] = eval('dataset.{}(root=root, split="test", '
-                                'transform=dataset.Compose([transforms.ToTensor()]))'.format(data_name))
-        dataset_['train'].transform = dataset.Compose([
-            transforms.RandomCrop(32, padding=4, padding_mode='reflect'),
-            transforms.ToTensor(),
-            transforms.Normalize(*data_stats[data_name])])
-        dataset_['test'].transform = dataset.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize(*data_stats[data_name])])
+    # if data_name in ['MNIST', 'FashionMNIST']:
+    #     dataset_['train'] = eval('dataset.{}(root=root, split="train", '
+    #                              'transform=dataset.Compose([transforms.ToTensor()]))'.format(data_name))
+    #     dataset_['test'] = eval('dataset.{}(root=root, split="test", '
+    #                             'transform=dataset.Compose([transforms.ToTensor()]))'.format(data_name))
+    #     dataset_['train'].transform = dataset.Compose([
+    #         transforms.Resize(32),
+    #         transforms.ToTensor(),
+    #         transforms.Normalize([0.5], [0.5])])
+    #     dataset_['test'].transform = dataset.Compose([
+    #         transforms.Resize(32),
+    #         transforms.ToTensor(),
+    #         transforms.Normalize([0.5], [0.5])])
+    #     dataset_['train'].data_size = (1, 32, 32)
+    #     dataset_['test'].data_size = (1, 32, 32)
+    # elif data_name in ['CIFAR10', 'CIFAR100']:
+    #     dataset_['train'] = eval('dataset.{}(root=root, split="train", '
+    #                              'transform=dataset.Compose([transforms.ToTensor()]))'.format(data_name))
+    #     dataset_['test'] = eval('dataset.{}(root=root, split="test", '
+    #                             'transform=dataset.Compose([transforms.ToTensor()]))'.format(data_name))
+    #     dataset_['train'].transform = dataset.Compose([
+    #         transforms.RandomHorizontalFlip(),
+    #         transforms.RandomCrop(32, padding=4, padding_mode='reflect'),
+    #         transforms.ToTensor(),
+    #         transforms.Normalize([0.5], [0.5])])
+    #     dataset_['test'].transform = dataset.Compose([
+    #         transforms.ToTensor(),
+    #         transforms.Normalize([0.5], [0.5])])
+    # elif data_name in ['SVHN']:
+    #     dataset_['train'] = eval('dataset.{}(root=root, split="train", '
+    #                              'transform=dataset.Compose([transforms.ToTensor()]))'.format(data_name))
+    #     dataset_['test'] = eval('dataset.{}(root=root, split="test", '
+    #                             'transform=dataset.Compose([transforms.ToTensor()]))'.format(data_name))
+    #     dataset_['train'].transform = dataset.Compose([
+    #         transforms.RandomCrop(32, padding=4, padding_mode='reflect'),
+    #         transforms.ToTensor(),
+    #         transforms.Normalize(*data_stats[data_name])])
+    #     dataset_['test'].transform = dataset.Compose([
+    #         transforms.ToTensor(),
+    #         transforms.Normalize(*data_stats[data_name])])
+    if data_name in ['MNIST', 'FashionMNIST', 'CIFAR10', 'CIFAR100', 'SVHN']:
+        dataset_cls = getattr(dataset, data_name)
+        base_transform = dataset.Compose([transforms.ToTensor()])
+        dataset_['train'] = dataset_cls(root=root, split='train', transform=base_transform)
+        dataset_['test'] = dataset_cls(root=root, split='test', transform=base_transform)
     elif data_name in ['TwoMoons']:
         dataset_['train'] = eval('dataset.{}(root=root, split="train")'.format(data_name))
         dataset_['test'] = eval('dataset.{}(root=root, split="test")'.format(data_name))

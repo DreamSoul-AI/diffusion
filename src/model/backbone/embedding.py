@@ -1,5 +1,7 @@
 import torch
 import torch.nn as nn
+import torch.optim as optim
+import torch.nn.functional as F
 import math
 
 
@@ -13,6 +15,7 @@ class IdentityEmbedding(nn.Module):
         shape[-1] = self.output_size
         output = input.expand(*shape)
         return output
+
 
 class FourierEmbedding(nn.Module):
     def __init__(self, input_size, output_size, max_period=10000.):
@@ -77,3 +80,68 @@ class ConditionEmbedding(nn.Module):
         else:
             embedding = None
         return embedding
+
+
+class DataEmbedding(nn.Module):
+    def __init__(self, num_embedding, embedding_size, transpose=True, *args, **kwargs):
+        super().__init__()
+        self.orthonormal_embedding = OrthonormalEmbedding(num_embedding, embedding_size)
+        self.transpose = transpose
+
+    def forward(self, x):
+        x = x.view(*x.shape[:2], -1)
+        weight = self.orthonormal_embedding.weight
+        if self.transpose:
+            weight = weight.T
+        x = F.linear(x, weight, None)
+        return x
+
+
+class OrthonormalEmbedding(nn.Embedding):
+    def __init__(self, num_embedding, embedding_size, requires_grad=False, num_iters=200, *args, **kwargs):
+        super().__init__(num_embedding, embedding_size, *args, **kwargs)
+        self.num_iters = num_iters
+        if num_embedding <= embedding_size:
+            with torch.no_grad():
+                self.weight.data = self.gram_schmidt(self.weight.data.detach())
+                # self.weight.data = torch.nn.functional.normalize(self.weight.data, p=2, dim=-1)
+        else:
+            self.num_iters = num_iters
+            self.weight.data = self.ebv(self.weight.data, self.num_iters).detach()
+        self.weight.requires_grad = requires_grad
+
+    @staticmethod
+    def gram_schmidt(vectors, eps=1e-10):
+        basis = []
+        for v in vectors:
+            w = v.clone()
+            for u in basis:
+                w -= torch.dot(u, v) * u
+            w_norm = torch.linalg.norm(w)
+            w /= max(w_norm, eps)
+            basis.append(w)
+        basis = torch.stack(basis, dim=0)
+        return basis
+
+    @staticmethod
+    def ebv(vectors, num_iters=200):
+        vectors.requires_grad = True
+        optimizer = optim.SGD([vectors], lr=1, momentum=0)
+        scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_iters,
+                                                         eta_min=0)
+        for i in range(num_iters):
+            norm = torch.linalg.norm(vectors, dim=-1, keepdim=True)
+            norm_vectors = vectors / norm
+            cosine = norm_vectors @ norm_vectors.t()
+            cosine = torch.triu(cosine, diagonal=1)
+            row_idx, col_idx = torch.triu_indices(*cosine.size(), offset=1)
+            cosine = cosine[row_idx, col_idx]
+            loss = cosine.abs().sum()
+            loss.backward()
+            optimizer.step()
+            scheduler.step()
+            optimizer.zero_grad()
+        with torch.no_grad():
+            norm = torch.linalg.norm(vectors, dim=-1, keepdim=True)
+            evd = vectors / norm
+        return evd

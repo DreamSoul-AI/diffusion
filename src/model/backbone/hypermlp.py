@@ -1,15 +1,16 @@
 from .layers import *
 from ..model import init_param
+from .embedding import DataEmbedding
+from .patch import Patchify, Reconstruct
 
 
-class StructuredHyperNetwork(nn.Module):
-    def __init__(self, time_embed_dim, d, n_layers=2):
+class HyperNetwork(nn.Module):
+    def __init__(self, time_embedding_size, hidden_size):
         super().__init__()
-        self.d = d
-        self.time_embed_dim = time_embed_dim
+        self.time_embedding_size = time_embedding_size
+        self.hidden_size = hidden_size
 
-        # Project time embedding to (B, d, d)
-        self.initial_proj = nn.Linear(time_embed_dim, d * d)
+        self.initial_proj = nn.Linear(time_embedding_size, hidden_size * hidden_size)
 
         # Layers operating on (B, d, d)
         self.layers = nn.Sequential(*[
@@ -21,50 +22,47 @@ class StructuredHyperNetwork(nn.Module):
             ) for _ in range(n_layers)
         ])
 
-    def forward(self, time_embed):
-        """
-        Args:
-            time_embed: Tensor of shape (B, d')
-        Returns:
-            generated_weight: Tensor of shape (B, d, d)
-        """
+    def forward(self, time_embedding):
+        time_embedding = time_embedding
         B = time_embed.size(0)
         x = self.initial_proj(time_embed).view(B, self.d, self.d)  # (B, d, d)
         x = self.layers(x)  # Structured processing
-        return x  # This will be used as a generated weight matrix
+        return x
 
 
 class HyperMLP(nn.Module):
-    def __init__(self, image_input_size, d, hidden_size, activation):
+    def __init__(self, data_size, hidden_size, activation, time_embedding_size, cond_embedding_size):
         super().__init__()
-        self.d = d
-        self.image_embed = nn.Linear(image_input_size, d)
-        self.activation = Activation(activation)
+        self.data_size = data_size
+        self.hidden_size = hidden_size
+        self.activation = activation
+        self.time_embedding_size = time_embedding_size
+        self.cond_embedding_size = cond_embedding_size
 
-        # MLP block after applying hyper weight
-        self.mlp = nn.Sequential(
-            nn.Linear(d, hidden_size),
-            Activation(activation),
-            nn.Linear(hidden_size, image_input_size)
-        )
+        input_size = math.prod(data_size)
+        patch_size = (4, 4)
+        dim_index = 1
+        self.patchify = Patchify(patch_size=patch_size, dim_index=dim_index)
+        self.reconstruct = Reconstruct(data_size=[1] + list(data_size), dim_index=dim_index)
+        self.data_embedding = DataEmbedding(math.prod(patch_size), hidden_size)
 
-    def forward(self, x, hyper_weight):
-        """
-        Args:
-            x: image tensor of shape (B, k)
-            hyper_weight: tensor of shape (B, d, d)
-        """
-        x = self.image_embed(x)  # (B, d)
-        x = torch.bmm(hyper_weight, x.unsqueeze(-1)).squeeze(-1)  # (B, d)
+    def forward(self, x):
+        print(x.size())
+        x = self.patchify(x)
+        x = self.data_embedding(x)
+        print(x.size())
+        exit()
+
+        x = torch.bmm(hyper_weight, x.unsqueeze(-1)).squeeze(-1)
         x = self.activation(x)
-        x = self.mlp(x)  # (B, k)
+        x = self.mlp(x)
         return x
 
 
 def hypermlp(cfg):
     data_size = cfg['data_size']
-    hidden_size = cfg['mlp']['hidden_size']
-    activation = cfg['mlp']['activation']
+    hidden_size = cfg['hypermlp']['hidden_size']
+    activation = cfg['hypermlp']['activation']
     time_embedding_size = cfg['time_embedding_size']
     cond_embedding_size = cfg['cond_embedding_size']
     model = HyperMLP(data_size, hidden_size, activation, time_embedding_size, cond_embedding_size)

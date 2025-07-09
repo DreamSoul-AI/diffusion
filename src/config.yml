@@ -1,9 +1,9 @@
 ---
 # control
 control:
-  data_name: TwoMoons
+  data_name: MNIST
   model_name: mlp
-  formulation_mode: at
+  formulation_mode: ot
   is_time: 1
   is_cond: 0
   regularization:

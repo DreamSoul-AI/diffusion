@@ -24,6 +24,9 @@ class MLP(nn.Module):
         size = x.size()
         x = x.reshape(x.size(0), -1)
         if time_embedding is not None:
+            print(x.size(), time_embedding.size())
+            exit()
+            # TODO: compatiblity issue for mlp
             x = torch.cat([x, time_embedding], dim=1)
         if cond_embedding is not None:
             x = torch.cat([x, cond_embedding], dim=1)
