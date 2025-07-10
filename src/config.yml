@@ -2,7 +2,7 @@
 # control
 control:
   data_name: MNIST
-  model_name: mlp
+  model_name: unet
   formulation_mode: ot
   is_time: 1
   is_cond: 0
@@ -10,11 +10,11 @@ control:
     v: 1.
     x0: 0.
     x1: 0.
-    consistency: 1.
+    consistency: 0.
 # generate
 generate:
-  num_steps: 1
-  guidance_scale: 2.
+  num_steps: 100
+  guidance_scale: 1.
   eta: 0.
 # experiment
 pin_memory: True

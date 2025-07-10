@@ -49,12 +49,12 @@ class UNet(nn.Module):
             ResConvBlock(c, c, self.data_size[0], is_last=True),
         )
 
-    def forward(self, x, timestep_embedding=None, cond_embedding=None):
-        if timestep_embedding is not None:
-            # timestep_embedding = expand_to_planes(timestep_embedding, x.size())
-            x = torch.cat([x, timestep_embedding], dim=1)
+    def forward(self, x, time_embedding=None, cond_embedding=None):
+        if time_embedding is not None:
+            time_embedding = expand_shape(time_embedding, x.size(), 'base')
+            x = torch.cat([x, time_embedding], dim=1)
         if cond_embedding is not None:
-            # cond_embedding = expand_to_planes(cond_embedding, x.shape)
+            cond_embedding = expand_shape(cond_embedding, x.size(), 'base')
             x = torch.cat([x, cond_embedding], dim=1)
         x = self.net(x)
         return x

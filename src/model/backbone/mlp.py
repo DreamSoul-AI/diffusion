@@ -24,11 +24,10 @@ class MLP(nn.Module):
         size = x.size()
         x = x.reshape(x.size(0), -1)
         if time_embedding is not None:
-            print(x.size(), time_embedding.size())
-            exit()
-            # TODO: compatiblity issue for mlp
+            time_embedding = expand_shape(time_embedding, x.size(), 'base')
             x = torch.cat([x, time_embedding], dim=1)
         if cond_embedding is not None:
+            cond_embedding = expand_shape(cond_embedding, x.size(), 'base')
             x = torch.cat([x, cond_embedding], dim=1)
         x = self.blocks(x)
         return x, size

@@ -26,10 +26,6 @@ class Flow(nn.Module):
     def forward_diffusion_pass(self, z, t, cond=None):
         time_embedding = self.time_embedding(t)
         cond_embedding = self.cond_embedding(cond)
-        if time_embedding is not None:
-            time_embedding = expand_shape(time_embedding, z.size(), 'base')
-        if cond_embedding is not None:
-            cond_embedding = expand_shape(cond_embedding, z.size(), 'base')
         pred = self.backbone(z, time_embedding, cond_embedding)
         return pred
 
@@ -72,7 +68,7 @@ class Flow(nn.Module):
             loss_x1 = F.mse_loss(pred_x1, x1)
 
             loss = z.new_zeros(())
-            if self.regularization['x0'] > 0:
+            if self.regularization['v'] > 0:
                 loss += self.regularization['v'] * loss_v
             if self.regularization['x0'] > 0:
                 loss += self.regularization['x0'] * loss_x0

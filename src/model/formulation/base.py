@@ -31,7 +31,8 @@ class Base(nn.Module):
             )
             self.augmentation['test'] = K.Normalize(mean=0.5, std=0.5)
         else:
-            raise ValueError('Not valid data_name')
+            self.augmentation['train'] = nn.Identity()
+            self.augmentation['test'] = nn.Identity()
         self.rng = torch.quasirandom.SobolEngine(1, scramble=True)
         self.core = core
 
@@ -50,7 +51,7 @@ class Base(nn.Module):
             training = self.training
 
         if training:
-            t = self.rng.draw(x_0.shape[0])[:, 0].to(x_0.device)
+            t = self.rng.draw(x_0.shape[0]).to(x_0.device)
         else:
             t = input['t']
 
