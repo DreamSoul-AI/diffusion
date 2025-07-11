@@ -69,7 +69,6 @@ class Reconstruct(nn.Module):
         upscale_factor = [
             self.data_size[self.dim_index[i]] // x.shape[-len(self.dim_index):][i] for i in range(len(self.dim_index))
         ]
-
         return self._tensor_shuffle(x, upscale_factor, self.dim_index)
 
     @staticmethod

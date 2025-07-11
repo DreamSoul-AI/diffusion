@@ -4,29 +4,18 @@ from .embedding import DataEmbedding
 from .patch import Patchify, Reconstruct
 
 
-class HyperNetwork(nn.Module):
+class HyperAttention(nn.Module):
     def __init__(self, time_embedding_size, hidden_size):
         super().__init__()
-        self.time_embedding_size = time_embedding_size
         self.hidden_size = hidden_size
+        self.time_proj = nn.Linear(time_embedding_size, hidden_size)
 
-        self.initial_proj = nn.Linear(time_embedding_size, hidden_size * hidden_size)
-
-        # Layers operating on (B, d, d)
-        self.layers = nn.Sequential(*[
-            nn.Sequential(
-                nn.LayerNorm([d, d]),
-                nn.Linear(d, d),  # Applies to last dim
-                nn.GELU(),
-                nn.Linear(d, d)
-            ) for _ in range(n_layers)
-        ])
-
-    def forward(self, time_embedding):
-        time_embedding = time_embedding
-        B = time_embed.size(0)
-        x = self.initial_proj(time_embed).view(B, self.d, self.d)  # (B, d, d)
-        x = self.layers(x)  # Structured processing
+    def forward(self, time_embedding, x):
+        time_embedding = time_embedding.unsqueeze(1)
+        time_embedding = self.time_proj(time_embedding)
+        x = x.matmul(time_embedding.transpose(-2, -1))
+        attn = x.sigmoid()
+        x = torch.matmul(attn, time_embedding)
         return x
 
 
@@ -40,22 +29,28 @@ class HyperMLP(nn.Module):
         self.cond_embedding_size = cond_embedding_size
 
         input_size = math.prod(data_size)
-        patch_size = (4, 4)
-        dim_index = 1
+        num_layers = 2
+        patch_size = (1, 4, 4)
+        dim_index = [1, 2, 3]
         self.patchify = Patchify(patch_size=patch_size, dim_index=dim_index)
         self.reconstruct = Reconstruct(data_size=[1] + list(data_size), dim_index=dim_index)
         self.data_embedding = DataEmbedding(math.prod(patch_size), hidden_size)
+        self.attention = HyperAttention(time_embedding_size, hidden_size)
+        blocks = []
+        for i in range(num_layers):
+            blocks.append(nn.Linear(hidden_size, hidden_size))
+            blocks.append(Activation(activation))
+        self.blocks = nn.Sequential(*blocks)
+        self.output_proj = nn.Linear(hidden_size, 16)
 
-    def forward(self, x):
-        print(x.size())
+    def forward(self, x, time_embedding=None, cond_embedding=None):
         x = self.patchify(x)
+        patch_size = x.size()
         x = self.data_embedding(x)
-        print(x.size())
-        exit()
-
-        x = torch.bmm(hyper_weight, x.unsqueeze(-1)).squeeze(-1)
-        x = self.activation(x)
-        x = self.mlp(x)
+        x = self.attention(time_embedding, x)
+        x = self.output_proj(x)
+        x = x.view(patch_size)
+        x = self.reconstruct(x)
         return x
 
 

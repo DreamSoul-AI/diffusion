@@ -29,9 +29,10 @@ def process_control():
     cfg['model']['unet'] = {'hidden_size': 64}
     if cfg['data_name'] in ['TwoMoons']:
         cfg['model']['mlp'] = {'hidden_size': [64, 64, 64], 'activation': 'relu'}
-        cfg['model']['hypermlp'] = {'hidden_size': 64, 'activation': 'relu'}
+        cfg['model']['hypermlp'] = {'hidden_size': 32, 'activation': 'relu'}
     else:
         cfg['model']['mlp'] = {'hidden_size': [128, 256], 'activation': 'relu'}
+        cfg['model']['hypermlp'] = {'hidden_size': 64, 'activation': 'relu'}
 
     # https://github.com/facebookresearch/flow_matching/tree/main/examples/image
     # https://github.com/facebookresearch/flow_matching/blob/47c439602a360ef7d2ec2b9a521b4dda5f335112/examples/image/models/nn.py#L107
