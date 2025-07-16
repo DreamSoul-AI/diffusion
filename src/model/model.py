@@ -108,7 +108,7 @@ def make_scheduler(optimizer, cfg):
                                                          eta_min=cfg['min_lr'])
     elif cfg['scheduler_name'] == 'ReduceLROnPlateau':
         scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=cfg['factor'],
-                                                         patience=cfg['patience'], verbose=False,
+                                                         patience=cfg['patience'],
                                                          threshold=cfg['threshold'], threshold_mode='rel',
                                                          min_lr=cfg['min_lr'])
     elif cfg['scheduler_name'] == 'CyclicLR':

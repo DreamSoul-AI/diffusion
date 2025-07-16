@@ -53,6 +53,8 @@ class Flow(nn.Module):
 
     def forward(self, z, t, cond, training=True):
         if training:
+            t = t.clamp(min=0, max=1 - self.step_size)
+
             x1 = z
             x0 = self.make_x0(x1)
             z = self.make_z(x0, x1, t)
@@ -74,15 +76,14 @@ class Flow(nn.Module):
                 loss += self.regularization['x0'] * loss_x0
             if self.regularization['x1'] > 0:
                 loss += self.regularization['x1'] * loss_x1
-            if self.regularization['consistency'] > 0:
+            if self.regularization['consistency'] > 0:  # TODO: add model ema
                 with torch.no_grad():
-                    t_consistency = (t - self.step_size).clamp(min=0, max=1)
-                    z_consistency = self.make_z(pred_x0, pred_x1, t_consistency)
-                    pred_v_consistency = self.forward_diffusion_pass(z_consistency, t_consistency, cond)
-                    pred_x1_consistency = self.predict_x1(z_consistency, pred_v_consistency, t_consistency)
-                    pred_x1_consistency = pred_x1_consistency.detach()
+                    t_consistency = t + self.step_size
+                    z_consistency = self.make_z(x0, x1, t_consistency)
+                    pred_v_consistency = self.forward_diffusion_pass(z_consistency, t_consistency, cond).detach()
+                    pred_x1_consistency = self.predict_x1(z_consistency, pred_v_consistency, t_consistency).detach()
                 pred_x1 = self.predict_x1(z, pred_v, t)
-                loss_consistency = F.mse_loss(pred_x1, pred_x1_consistency)
+                loss_consistency = F.mse_loss(pred_x1, pred_x1_consistency) + F.mse_loss(pred_v, pred_v_consistency)
                 loss += self.regularization['consistency'] * loss_consistency
             else:
                 loss_consistency = torch.tensor([0])
