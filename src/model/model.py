@@ -1,3 +1,4 @@
+import copy
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -122,3 +123,23 @@ def make_scheduler(optimizer, cfg):
     else:
         raise ValueError('Not valid scheduler name')
     return scheduler
+
+
+class ModelEMA:
+    def __init__(self, model, decay=0.9):
+        self.decay = decay
+        self.shadow = copy.deepcopy(model)
+        self.shadow.eval()
+
+    @torch.no_grad()
+    def update(self, model):
+        for param_name, parameter in model.named_parameters():
+            for ema_param_name, ema_parameter in self.shadow.named_parameters():
+                if param_name == ema_param_name:
+                    ema_parameter.data.mul_(self.decay).add_(parameter.data, alpha=1 - self.decay)
+
+        for buffer_name, buffer in model.named_buffers():
+            for ema_buffer_name, ema_buffer in self.shadow.named_buffers():
+                if buffer_name == ema_buffer_name:
+                    ema_buffer.data.mul_(self.decay).add_(ema_buffer.data, alpha=1 - self.decay)
+        return

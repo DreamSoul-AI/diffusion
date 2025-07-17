@@ -8,7 +8,7 @@ import torch.backends.cudnn as cudnn
 from config import cfg, process_args
 from dataset import make_dataset, make_data_loader, process_dataset
 from metric import make_logger
-from model import make_model, make_optimizer, make_scheduler
+from model import make_model, make_optimizer, make_scheduler, ModelEMA
 from module import check, resume, to_device, process_control
 
 cudnn.benchmark = True
@@ -66,6 +66,9 @@ def runExperiment():
                                    cfg['step'], cfg['step_period'], cfg['pin_memory'], cfg['num_workers'],
                                    cfg['collate_mode'], cfg['seed'])
     data_iterator = enumerate(data_loader['train'])
+    if cfg['regularization']['consistency'] > 0 and cfg['model']['model_ema_decay'] > 0:
+        model_ema = ModelEMA(model.core, cfg['model']['model_ema_decay'])
+        model.core.model_ema = model_ema
     while cfg['step'] < cfg['num_steps']:
         train(data_iterator, model, optimizer, scheduler, logger)
         test(data_loader['test'], model, logger)
@@ -96,6 +99,8 @@ def train(data_loader, model, optimizer, scheduler, logger):
                 optimizer.step()
                 scheduler.step()
                 optimizer.zero_grad()
+                if cfg['regularization']['consistency'] > 0 and cfg['model']['model_ema_decay'] > 0:
+                    model.core.model_ema.update(model.core)
             evaluation = logger.evaluate('train', 'batch', input, output)
             logger.append(evaluation, 'train', n=input_size)
             idx = cfg['step'] % cfg['eval_period']

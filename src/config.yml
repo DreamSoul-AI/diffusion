@@ -1,7 +1,7 @@
 ---
 # control
 control:
-  data_name: MNIST
+  data_name: TwoMoons
   model_name: mlp
   formulation_mode: ot
   is_time: 1
@@ -11,6 +11,7 @@ control:
     x0: 0.
     x1: 0.
     consistency: 1.
+  model_ema_decay: 1.
 # generate
 generate:
   num_steps: 100

@@ -8,6 +8,7 @@ def process_control():
     cfg['is_time'] = cfg['control']['is_time']
     cfg['is_cond'] = cfg['control']['is_cond']
     cfg['regularization'] = cfg['control']['regularization']
+    cfg['model_ema_decay'] = cfg['control']['model_ema_decay']
 
     cfg['batch_size'] = 256
     cfg['step_period'] = 1
@@ -55,6 +56,7 @@ def process_control():
 
     cfg['model']['diffusion'] = {'class_dropout': class_dropout, 'regularization': {'v': 1, 'x0': 0.1, 'eps': 0.1}}
     cfg['model']['flow'] = {'class_dropout': class_dropout, 'regularization': cfg['regularization']}
+    cfg['model']['model_ema_decay'] = cfg['model_ema_decay']
 
     tag = cfg['tag']
     cfg[tag] = {}

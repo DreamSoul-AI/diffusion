@@ -5,7 +5,7 @@ from model.backbone import TimeEmbedding, ConditionEmbedding, expand_shape
 
 class Flow(nn.Module):
     def __init__(self, backbone, target_size, class_dropout, time_embedding_mode, time_embedding_size,
-                 cond_embedding_size, regularization):
+                 cond_embedding_size, regularization, model_ema_decay):
         super().__init__()
         self.backbone = backbone
         self.target_size = target_size
@@ -13,6 +13,7 @@ class Flow(nn.Module):
         self.time_embedding = TimeEmbedding(time_embedding_mode, time_embedding_size)
         self.cond_embedding = ConditionEmbedding(self.target_size + 1, cond_embedding_size, offset=1)
         self.regularization = regularization
+        self.model_ema_decay = model_ema_decay
         self.step_size = 1e-2
 
     @property
@@ -76,11 +77,17 @@ class Flow(nn.Module):
                 loss += self.regularization['x0'] * loss_x0
             if self.regularization['x1'] > 0:
                 loss += self.regularization['x1'] * loss_x1
-            if self.regularization['consistency'] > 0:  # TODO: add model ema
+            if self.regularization['consistency'] > 0:
                 with torch.no_grad():
                     t_consistency = t + self.step_size
                     z_consistency = self.make_z(x0, x1, t_consistency)
-                    pred_v_consistency = self.forward_diffusion_pass(z_consistency, t_consistency, cond).detach()
+                    # z_consistency = self.make_z(pred_x0, pred_x1, t_consistency)
+                    if self.model_ema_decay > 0:
+                        pred_v_consistency = self.model_ema.shadow.forward_diffusion_pass(z_consistency, t_consistency,
+                                                                                          cond).detach()
+                    else:
+                        pred_v_consistency = self.forward_diffusion_pass(z_consistency, t_consistency,
+                                                                         cond).detach()
                     pred_x1_consistency = self.predict_x1(z_consistency, pred_v_consistency, t_consistency).detach()
                 pred_x1 = self.predict_x1(z, pred_v, t)
                 loss_consistency = F.mse_loss(pred_x1, pred_x1_consistency) + F.mse_loss(pred_v, pred_v_consistency)
@@ -95,10 +102,8 @@ class Flow(nn.Module):
 
 
 class OptimalTransport(Flow):
-    def __init__(self, backbone, target_size, class_dropout, time_embedding_size, time_embedding_mode,
-                 cond_embedding_size, regularization):
-        super().__init__(backbone, target_size, class_dropout, time_embedding_size, time_embedding_mode,
-                         cond_embedding_size, regularization)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
     def alpha(self, t):
         return t
@@ -122,10 +127,8 @@ class OptimalTransport(Flow):
 
 
 class AngularTransport(Flow):
-    def __init__(self, backbone, target_size, class_dropout, time_embedding_size, time_embedding_mode,
-                 cond_embedding_size, regularization):
-        super().__init__(backbone, target_size, class_dropout, time_embedding_size, time_embedding_mode,
-                         cond_embedding_size, regularization)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
     def alpha(self, t):
         return torch.sin(t * math.pi / 2)
@@ -150,10 +153,8 @@ class AngularTransport(Flow):
 
 
 class GaussianTransport(Flow):
-    def __init__(self, backbone, target_size, class_dropout, time_embedding_size, time_embedding_mode,
-                 cond_embedding_size, regularization):
-        super().__init__(backbone, target_size, class_dropout, time_embedding_size, time_embedding_mode,
-                         cond_embedding_size, regularization)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
     def alpha(self, t):
         return torch.sqrt(t)
@@ -184,8 +185,9 @@ def ot(backbone, cfg):
     time_embedding_mode = cfg['time_embedding_mode']
     time_embedding_size = cfg['time_embedding_size']
     cond_embedding_size = cfg['cond_embedding_size']
+    model_ema_decay = cfg['model_ema_decay']
     model = OptimalTransport(backbone, target_size, class_dropout, time_embedding_mode, time_embedding_size,
-                             cond_embedding_size, regularization)
+                             cond_embedding_size, regularization, model_ema_decay)
     return model
 
 
@@ -196,8 +198,9 @@ def at(backbone, cfg):
     time_embedding_mode = cfg['time_embedding_mode']
     time_embedding_size = cfg['time_embedding_size']
     cond_embedding_size = cfg['cond_embedding_size']
+    model_ema_decay = cfg['model_ema_decay']
     model = AngularTransport(backbone, target_size, class_dropout, time_embedding_mode, time_embedding_size,
-                             cond_embedding_size, regularization)
+                             cond_embedding_size, regularization, model_ema_decay)
     return model
 
 
@@ -208,6 +211,7 @@ def gt(backbone, cfg):
     time_embedding_mode = cfg['time_embedding_mode']
     time_embedding_size = cfg['time_embedding_size']
     cond_embedding_size = cfg['cond_embedding_size']
+    model_ema_decay = cfg['model_ema_decay']
     model = GaussianTransport(backbone, target_size, class_dropout, time_embedding_mode, time_embedding_size,
-                              cond_embedding_size, regularization)
+                              cond_embedding_size, regularization, model_ema_decay)
     return model
