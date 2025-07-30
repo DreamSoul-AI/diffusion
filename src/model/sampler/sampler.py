@@ -31,7 +31,8 @@ class Sampler:
     @torch.no_grad()
     def _sample(self, mode, z, model, classes=None):
         model.train(False)
-        t = torch.linspace(0, 1, self.num_steps, device=z.device)
+        t = torch.linspace(0, 1, self.num_steps + 1, device=z.device)
+        # t = torch.tensor([1e-3, 0.5, 1-1e-3], device=z.device)
         ts = z.new_ones([z.shape[0]])
 
         input = {}

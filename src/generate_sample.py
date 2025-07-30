@@ -47,6 +47,8 @@ def runExperiment():
     dataset = process_dataset(dataset)
     model = make_model(cfg['model'])
     result = resume(cfg['best_path'])
+    cfg['step'] = result['cfg']['step']
+    print('Test Epoch: {}({:.0f}%)'.format(cfg['step'] // cfg['eval_period'], 100.))
     model = model.to(cfg['device'])
     model.load_state_dict(result['model'])
     generate(model)

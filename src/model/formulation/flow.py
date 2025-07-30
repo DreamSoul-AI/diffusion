@@ -14,7 +14,10 @@ class Flow(nn.Module):
         self.cond_embedding = ConditionEmbedding(self.target_size + 1, cond_embedding_size, offset=1)
         self.regularization = regularization
         self.model_ema_decay = model_ema_decay
-        self.step_size = 1e-2
+        self.step_size = 1e-3
+        self.threshold = 0.9
+        self.segments = [0.0, 0.5, 1.0]
+        self.regularization_loss_v = 1e-5
 
     @property
     def is_time(self):
@@ -52,6 +55,14 @@ class Flow(nn.Module):
         z += z + self.sigma(t) * self.make_x0(z)
         return z
 
+    def predict_x(self, z, v, t, t_target):
+        t = expand_shape(t, z.size())  # TODO: adapt for 2d data
+        t_target = expand_shape(t_target, z.size())
+        pred_x0 = self.predict_x0(z, v, t)
+        pred_x1 = self.predict_x0(z, v, t)
+        x = self.make_z(pred_x0, pred_x1, t_target)
+        return x
+
     def forward(self, z, t, cond, training=True):
         if training:
             t = t.clamp(min=0, max=1 - self.step_size)
@@ -78,19 +89,35 @@ class Flow(nn.Module):
             if self.regularization['x1'] > 0:
                 loss += self.regularization['x1'] * loss_x1
             if self.regularization['consistency'] > 0:
+                # https://github.com/YangLing0818/consistency_flow_matching/blob/81000db385ad21fd702d0bd6ab53d45678f0d50f/losses.py#L136
+                segments = z.new_tensor(self.segments)
+                # .clamp(min=1) prevents the inclusion of 0 in indices.
+                seg_indices = torch.searchsorted(segments, t, side="left").clamp(min=1)
+                segments = segments[seg_indices]
+
+                true_x_segments = self.predict_x(z, v, t, segments)
+                pred_x_segments = self.predict_x(z, pred_v, t, segments)
                 with torch.no_grad():
-                    t_consistency = t + self.step_size
+                    t_consistency = torch.clamp(t + self.step_size, max=1)
                     z_consistency = self.make_z(x0, x1, t_consistency)
-                    # z_consistency = self.make_z(pred_x0, pred_x1, t_consistency)
                     if self.model_ema_decay > 0:
                         pred_v_consistency = self.model_ema.shadow.forward_diffusion_pass(z_consistency, t_consistency,
                                                                                           cond).detach()
                     else:
                         pred_v_consistency = self.forward_diffusion_pass(z_consistency, t_consistency,
                                                                          cond).detach()
-                    pred_x1_consistency = self.predict_x1(z_consistency, pred_v_consistency, t_consistency).detach()
-                pred_x1 = self.predict_x1(z, pred_v, t)
-                loss_consistency = F.mse_loss(pred_x1, pred_x1_consistency) + F.mse_loss(pred_v, pred_v_consistency)
+                    pred_x_segments_consistency = self.predict_x(z_consistency, pred_v_consistency, t_consistency,
+                                                                 segments)
+                less_than_threshold = t < self.threshold
+                pred_x_segments_consistency_thresholded = \
+                    less_than_threshold * pred_x_segments_consistency + \
+                    (~less_than_threshold) * true_x_segments
+                loss_consistency_x = F.mse_loss(pred_x_segments, pred_x_segments_consistency_thresholded)
+                far_from_segment_ends = (segments - t) > 1.01 * self.step_size
+                loss_consistency_v = less_than_threshold * far_from_segment_ends * \
+                                     F.mse_loss(pred_v, pred_v_consistency, reduction='none')
+                loss_consistency_v = loss_consistency_v.mean()
+                loss_consistency = loss_consistency_x + self.regularization_loss_v * loss_consistency_v
                 loss += self.regularization['consistency'] * loss_consistency
             else:
                 loss_consistency = torch.tensor([0])

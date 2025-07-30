@@ -51,7 +51,8 @@ class Base(nn.Module):
             training = self.training
 
         if training:
-            t = self.rng.draw(x_0.shape[0]).to(x_0.device)
+            # t = self.rng.draw(x_0.shape[0]).to(x_0.device)
+            t = self.rng.draw(x_0.shape[0]).to(x_0.device) * (1 - 1e-3) + 1e-3
         else:
             t = input['t']
 

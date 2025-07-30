@@ -11,7 +11,7 @@ control:
     x0: 0.
     x1: 0.
     consistency: 1.
-  model_ema_decay: 1.
+  model_ema_decay: 0
 # generate
 generate:
   num_steps: 100

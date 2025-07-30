@@ -20,7 +20,7 @@ def make_metric(split, **kwargs):
     elif data_name in ['TwoMoons']:
         best = float('inf')
         best_direction = 'down'
-        best_metric_name = 'Loss'
+        best_metric_name = 'Loss_x0'
         for k in metric_name:
             metric_name[k].extend(['Loss', 'Loss_v', 'Loss_x0', 'Loss_x1', 'Loss_consistency'])
     else:
