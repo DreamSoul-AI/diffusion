@@ -37,7 +37,7 @@ class Flow(nn.Module):
         x0 = torch.randn_like(x)
         return x0
 
-    # TODO: add bsz support for t
+    # TODO: need to rename z
     def make_z(self, x0, x1, t):
         t = expand_shape(t, x0.size())
         z = self.sigma(t) * x0 + self.alpha(t) * x1
@@ -46,9 +46,9 @@ class Flow(nn.Module):
     # TODO: adapt for 2d data
     def predict_xt(self, z, v, t, t_target):
         t = expand_shape(t, z.size())
-        t_target = expand_shape(t_target, z.size())
         pred_x0 = self.predict_x0(z, v, t)
         pred_x1 = self.predict_x1(z, v, t)
+        t_target = expand_shape(t_target, z.size())
         pred_z = self.make_z(pred_x0, pred_x1, t_target)
         return pred_z
 
@@ -86,20 +86,19 @@ class Flow(nn.Module):
                 loss += self.regularization['x0'] * loss_x0
             if self.regularization['x1'] > 0:
                 loss += self.regularization['x1'] * loss_x1
-
-            if self.regularization['z'] > 0:
-                t_z = torch.linspace(0, 1, 100)
-                pred_z = self.predict_xt(z, pred_v, t, t_z)
+            if self.regularization['xt'] > 0:
+                t_ = torch.linspace(0, 1, 100, device=t.device).view(-1, 1, 1)
+                pred_xt = self.predict_xt(z, pred_v, t, t_)
                 with torch.no_grad():
-                    z_target = self.make_z(x0, x1, t_z).detach()
-                print(pred_z)
-                loss_z = F.mse_loss(pred_z, z_target)
-                loss += loss_z
+                    z_ = self.make_z(x0, x1, t_).detach()
+                loss_xt = F.mse_loss(pred_xt, z_)
+                loss += loss_xt
 
             if self.regularization['consistency'] > 0:
                 # https://github.com/YangLing0818/consistency_flow_matching/blob/81000db385ad21fd702d0bd6ab53d45678f0d50f/losses.py#L136
                 segments = z.new_tensor(self.segments)
                 # .clamp(min=1) prevents the inclusion of 0 in indices.
+                # TODO: fix t 0-1 range issue
                 seg_indices = torch.searchsorted(segments, t, side="left").clamp(min=1)
                 segments = segments[seg_indices]
 

@@ -82,6 +82,7 @@ class SkipBlock(nn.Module):
         return torch.cat([self.main(input), self.skip(input)], dim=1)
 
 
+# TODO: add bsz support for t
 def expand_shape(input, shape, expand_value=1):
     if input.dim() == 0:
         input = input.unsqueeze(0)

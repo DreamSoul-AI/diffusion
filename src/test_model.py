@@ -68,6 +68,7 @@ def test(data_loader, model, logger):
             noise = torch.randn(input['data'].size(), device=(cfg['device']))
             classes = input['target']
             samples = sampler.sample(noise, model, classes)
+            # TODO: need to adapt for loss and data FID compute later
             input = {'data': sampler.apply_normalize(input['data'], -1, 1)}
             output = {'data': sampler.apply_normalize(samples, -1, 1)}
             evaluation = logger.evaluate('test', 'batch', input, output)

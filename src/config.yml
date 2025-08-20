@@ -3,7 +3,7 @@
 control:
   data_name: TwoMoons
   model_name: mlp
-  formulation_mode: ot
+  formulation_mode: at
   is_time: 1
   is_cond: 0
   regularization:
