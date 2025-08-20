@@ -37,10 +37,20 @@ class Flow(nn.Module):
         x0 = torch.randn_like(x)
         return x0
 
+    # TODO: add bsz support for t
     def make_z(self, x0, x1, t):
         t = expand_shape(t, x0.size())
         z = self.sigma(t) * x0 + self.alpha(t) * x1
         return z
+
+    # TODO: adapt for 2d data
+    def predict_xt(self, z, v, t, t_target):
+        t = expand_shape(t, z.size())
+        t_target = expand_shape(t_target, z.size())
+        pred_x0 = self.predict_x0(z, v, t)
+        pred_x1 = self.predict_x1(z, v, t)
+        pred_z = self.make_z(pred_x0, pred_x1, t_target)
+        return pred_z
 
     def make_cond(self, classes):
         if self.is_cond:
@@ -50,18 +60,6 @@ class Flow(nn.Module):
         else:
             cond = None
         return cond
-
-    def add_noise(self, z, t):
-        z += z + self.sigma(t) * self.make_x0(z)
-        return z
-
-    def predict_x(self, z, v, t, t_target):
-        t = expand_shape(t, z.size())  # TODO: adapt for 2d data
-        t_target = expand_shape(t_target, z.size())
-        pred_x0 = self.predict_x0(z, v, t)
-        pred_x1 = self.predict_x0(z, v, t)
-        x = self.make_z(pred_x0, pred_x1, t_target)
-        return x
 
     def forward(self, z, t, cond, training=True):
         if training:
@@ -88,6 +86,16 @@ class Flow(nn.Module):
                 loss += self.regularization['x0'] * loss_x0
             if self.regularization['x1'] > 0:
                 loss += self.regularization['x1'] * loss_x1
+
+            if self.regularization['z'] > 0:
+                t_z = torch.linspace(0, 1, 100)
+                pred_z = self.predict_xt(z, pred_v, t, t_z)
+                with torch.no_grad():
+                    z_target = self.make_z(x0, x1, t_z).detach()
+                print(pred_z)
+                loss_z = F.mse_loss(pred_z, z_target)
+                loss += loss_z
+
             if self.regularization['consistency'] > 0:
                 # https://github.com/YangLing0818/consistency_flow_matching/blob/81000db385ad21fd702d0bd6ab53d45678f0d50f/losses.py#L136
                 segments = z.new_tensor(self.segments)
@@ -95,8 +103,8 @@ class Flow(nn.Module):
                 seg_indices = torch.searchsorted(segments, t, side="left").clamp(min=1)
                 segments = segments[seg_indices]
 
-                true_x_segments = self.predict_x(z, v, t, segments)
-                pred_x_segments = self.predict_x(z, pred_v, t, segments)
+                true_x_segments = self.predict_xt(z, v, t, segments)
+                pred_x_segments = self.predict_xt(z, pred_v, t, segments)
                 with torch.no_grad():
                     t_consistency = torch.clamp(t + self.step_size, max=1)
                     z_consistency = self.make_z(x0, x1, t_consistency)
@@ -106,8 +114,8 @@ class Flow(nn.Module):
                     else:
                         pred_v_consistency = self.forward_diffusion_pass(z_consistency, t_consistency,
                                                                          cond).detach()
-                    pred_x_segments_consistency = self.predict_x(z_consistency, pred_v_consistency, t_consistency,
-                                                                 segments)
+                    pred_x_segments_consistency = self.predict_xt(z_consistency, pred_v_consistency, t_consistency,
+                                                                  segments)
                 less_than_threshold = t < self.threshold
                 pred_x_segments_consistency_thresholded = \
                     less_than_threshold * pred_x_segments_consistency + \

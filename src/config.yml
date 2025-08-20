@@ -7,10 +7,11 @@ control:
   is_time: 1
   is_cond: 0
   regularization:
-    v: 0.
+    v: 1.
     x0: 0.
     x1: 0.
-    consistency: 1.
+    xt: 0.
+    consistency: 0.
   model_ema_decay: 0
 # generate
 generate:
